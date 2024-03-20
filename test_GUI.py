@@ -16,6 +16,7 @@ class WeeklyScheduleView(QWidget):
     def initUI(self):
         # 创建一个表格，行数为24，代表24小时，列数为7，代表一周七天
         self.tableWidget = QTableWidget(24, 7)  # 24小时，7天
+        self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # 设置表头为一周的每一天和日期
         self.updateTableHeaders()
@@ -76,7 +77,7 @@ class CalendarView(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setGeometry(100, 100, 1335, 795)
+        self.setGeometry(100, 100, 1100, 650)
         self.setWindowTitle('Building Management System')
 
         # 创建水平布局
@@ -113,7 +114,9 @@ class CalendarView(QMainWindow):
 
         # 创建“My Schedule”列表
         self.schedule_list = QListWidget()
+        self.schedule_list.setStyleSheet("QListWidget {border: 1px solid black;}")
         left_vbox.addWidget(self.schedule_list)
+
         # 创建中间的时间线视图并将其赋值给self.timeline_view
         self.timeline_view = WeeklyScheduleView(self)
         self.timeline_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -123,7 +126,7 @@ class CalendarView(QMainWindow):
 
         # 将左侧和中间的布局添加到水平布局
         hbox.addLayout(left_vbox, 1)
-        hbox.addWidget(self.timeline_view, 3)
+        hbox.addWidget(self.timeline_view, 4)
         
         # 设置中心窗口的布局
         central_widget = QWidget()
@@ -177,6 +180,10 @@ class CalendarView(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+
+    # 设置应用程序的风格
+    app.setStyle("windowsvista")
+
     ex = CalendarView()
     ex.show()
     sys.exit(app.exec())
