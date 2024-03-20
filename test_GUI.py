@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QDialog
-from PyQt5.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt, QDate
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QDialog
+from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QMessageBox
+from PySide6.QtCore import Qt, QDate
 from datetime import datetime, timedelta
 import os
 import glob
@@ -141,13 +141,13 @@ class CalendarView(QMainWindow):
             QMessageBox.warning(self, "Warning", "You haven't created a schedule yet. \nPlease create a schedule before adding events.")
         else:
             dialog = EventDialog(self)
-            if dialog.exec_() == QDialog.Accepted:
+            if dialog.exec() == QDialog.Accepted:
                 # 这里可以添加代码处理对话框的返回结果
                 pass
 
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
-        if dialog.exec_() == QDialog.Accepted and dialog.operation_successful:
+        if dialog.exec() == QDialog.Accepted and dialog.operation_successful:
             schedule_name = dialog.name_input.text()
 
             # 检查该名称是否已经存在于列表中
@@ -179,7 +179,7 @@ def main():
     app = QApplication(sys.argv)
     ex = CalendarView()
     ex.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 if __name__ == '__main__':
     main()

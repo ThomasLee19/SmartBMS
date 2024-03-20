@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QVBoxLayout, QComboBox, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QVBoxLayout, QComboBox, QMessageBox
 import xml.etree.ElementTree as ET
 import os
 import glob
