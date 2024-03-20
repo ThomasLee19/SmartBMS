@@ -16,7 +16,6 @@ class WeeklyScheduleView(QWidget):
     def initUI(self):
         # 创建一个表格，行数为24，代表24小时，列数为7，代表一周七天
         self.tableWidget = QTableWidget(24, 7)  # 24小时，7天
-        self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # 设置表头为一周的每一天和日期
         self.updateTableHeaders()
@@ -52,6 +51,8 @@ class WeeklyScheduleView(QWidget):
         
         # 设置水平头标签
         for i in range(7):
+            self.tableWidget.setColumnWidth(i, 151)
+            self.tableWidget.setRowHeight(i, 40)
             day_date = start_of_week.addDays(i)
             header_label = f'{day_date.toString("ddd")}\n{day_date.toString("dd/MM")}'
             self.tableWidget.setHorizontalHeaderItem(i, QTableWidgetItem(header_label))
@@ -68,8 +69,6 @@ class WeeklyScheduleView(QWidget):
                 item = QTableWidgetItem('')
                 # 将表格项添加到表格中
                 self.tableWidget.setItem(i, j, item)
-
-    # 以下函数可以添加到处理点击事件和编辑事件的逻辑
 
 class CalendarView(QMainWindow):
     def __init__(self):
@@ -126,7 +125,7 @@ class CalendarView(QMainWindow):
 
         # 将左侧和中间的布局添加到水平布局
         hbox.addLayout(left_vbox, 1)
-        hbox.addWidget(self.timeline_view, 4)
+        hbox.addWidget(self.timeline_view, 3)
         
         # 设置中心窗口的布局
         central_widget = QWidget()

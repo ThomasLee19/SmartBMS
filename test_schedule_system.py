@@ -9,7 +9,6 @@ class CreateScheduleDialog(QDialog):
         self.operation_successful = False
         self.setWindowTitle('Create New Schedule')
         self.setupUI()
-        self.resize(326, 155)
 
     def setupUI(self):
         layout = QVBoxLayout(self)
