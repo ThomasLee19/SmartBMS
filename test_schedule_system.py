@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QMessageBox
 from PySide6.QtCore import QTimer
 import xml.etree.ElementTree as ET
+import glob
 import os
 
 class CreateScheduleDialog(QDialog):
@@ -18,6 +19,11 @@ class CreateScheduleDialog(QDialog):
         self.name_input = QLineEdit(self)
         layout.addWidget(self.name_input)
 
+        # 添加Building ID的标签和输入框
+        layout.addWidget(QLabel('Building ID:'))
+        self.building_id_input = QLineEdit(self)
+        layout.addWidget(self.building_id_input)
+
         # 创建按钮组
         self.button_box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel, self)
         self.button_box.accepted.connect(self.on_accepted)
@@ -28,26 +34,36 @@ class CreateScheduleDialog(QDialog):
     def on_accepted(self):
         # 用户点击"保存"时的操作逻辑
         schedule_name = self.name_input.text().strip()  # 使用 strip() 移除前后空白字符
-        if not schedule_name:  # 检查名称是否为空
-            QMessageBox.critical(self, "Error", "Schedule name cannot be empty.")  # 显示错误消息
+        building_id = self.building_id_input.text().strip()
+
+        # 检查名称和Building ID是否为空
+        if not schedule_name or not building_id:  # 检查名称是否为空
+            QMessageBox.critical(self, "Error", "Schedule name and Building ID cannot be empty.")  # 显示错误消息
             return  # 返回，不继续执行保存逻辑
         
-        if schedule_name:
-            # 确保"Schedules"文件夹存在
-            schedules_dir = 'Schedules'
-            if not os.path.isdir(schedules_dir):
-                os.makedirs(schedules_dir)
+        # 检查Building ID是否唯一
+        duplicate_check = self.is_building_id_duplicate(building_id)
+        if duplicate_check:
+            # 如果Building ID不唯一，显示警告框
+            duplicate_schedule_name = duplicate_check[1]  # 从返回值中获取schedule名称
+            QMessageBox.critical(self, "Error", f"{building_id} already exists in {duplicate_schedule_name}.")
+            return
 
-            # 检查"Schedules"文件夹中文件是否存在
-            filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
-            if os.path.exists(filename):
-                self.confirm_replacement(filename)
-            else:
-                self.createScheduleXML(schedule_name)
-                self.operation_successful = True  # 设置操作成功标志
-                self.accept()
+        # 确保"Schedules"文件夹存在
+        schedules_dir = 'Schedules'
+        if not os.path.isdir(schedules_dir):
+            os.makedirs(schedules_dir)
 
-    def confirm_replacement(self, filename):
+        # 检查"Schedules"文件夹中文件是否存在
+        filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
+        if os.path.exists(filename):
+            self.confirm_replacement(filename, building_id)  # 现在传递building_id参数
+        else:
+            self.createScheduleXML(schedule_name, building_id)
+            self.operation_successful = True  # 设置操作成功标志
+            self.accept()
+        
+    def confirm_replacement(self, filename, building_id):
         schedule_name = os.path.basename(filename)  # 获取不带路径的文件名
         base_name = os.path.splitext(schedule_name)[0]  # 去除文件扩展名
         reply = QMessageBox.warning(self, 'Confirm Replacement', 
@@ -56,13 +72,26 @@ class CreateScheduleDialog(QDialog):
                                     QMessageBox.No)
 
         if reply == QMessageBox.Yes:
-            self.createScheduleXML(os.path.splitext(os.path.basename(filename))[0])
+            self.createScheduleXML(base_name, building_id)
             self.operation_successful = True  # 用户确认替换，操作成功
             self.accept()
         else:
-            self.replaced = False  # 用户选择不替换时，设置标志为False
+             self.operation_successful = False  # 用户选择不替换时，设置操作未成功
 
-    def createScheduleXML(self, schedule_name):
+    def is_building_id_duplicate(self, building_id):
+        # 检查Building ID是否在现有的XML文件中已存在
+        schedules_dir = 'Schedules'
+        schedule_files = glob.glob(os.path.join(schedules_dir, '*.xml'))
+        for filepath in schedule_files:
+            tree = ET.parse(filepath)
+            root = tree.getroot()
+            if root.findall(f".//building[@ID='{building_id}']"):
+                schedule_name = root.attrib.get('name')  # 获取该schedule的name属性
+                return (True, schedule_name)  # 返回True和schedule名称
+        return None  # 如果没有找到重复，返回None
+
+
+    def createScheduleXML(self, schedule_name, building_id):
         # 确保"Schedules"文件夹存在
         schedules_dir = 'Schedules'
         if not os.path.isdir(schedules_dir):
@@ -74,8 +103,9 @@ class CreateScheduleDialog(QDialog):
         # 创建XML元素
         schedule = ET.Element('schedule', name=schedule_name)
 
+        #创建building_id元素
+        building_element = ET.SubElement(schedule, 'building', ID=building_id)
+
         # 创建XML树并写入文件
         tree = ET.ElementTree(schedule)
         tree.write(filename, encoding='utf-8', xml_declaration=True)
-
-        # 如果需要更新UI列表或者执行其他操作，可以在这里添加代码

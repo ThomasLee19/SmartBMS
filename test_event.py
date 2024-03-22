@@ -51,19 +51,24 @@ class EventDialog(QDialog):
         if os.path.exists(filename):
             tree = ET.parse(filename)
             root = tree.getroot()
+            # 假设每个日程文件中只有一个building元素
+            building = root.find('.//building')
+            if building is not None:
+                # 在找到的<building>内部创建并添加<event>元素
+                event = ET.SubElement(building, 'event', ID=event_name)
+                ET.SubElement(event, 'eventTime')
+                setpoint = ET.SubElement(event, 'setpoint', value="", type="")
+                rrule = ET.SubElement(event, 'rrule')
+                ET.SubElement(rrule, 'repeat')
+                ET.SubElement(rrule, 'excDay')
+            else:
+                # 如果没有找到building元素，可能需要处理错误或创建一个新的building元素
+                # 这取决于你的具体需求
+                print("No building element found in the schedule.")
         else:
             # 如果文件不存在（理论上不应该发生），创建新的根元素
-            root = ET.Element('schedule', name=schedule_name)
+            print("Schedule file does not exist.")
 
-        # 创建并添加事件元素
-        event = ET.Element('event', ID=event_name)
-        ET.SubElement(event, 'eventTime')
-        setpoint = ET.SubElement(event, 'setpoint', value="", type="")
-        rrule = ET.SubElement(event, 'rrule')
-        ET.SubElement(rrule, 'repeat')
-        ET.SubElement(rrule, 'excDay')
-        
-        root.append(event)
         tree = ET.ElementTree(root)
         tree.write(filename, encoding='utf-8', xml_declaration=True)
 
