@@ -8,7 +8,9 @@ class EventDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle('Event')
         self.event_name_input = QLineEdit(self)
-        self.schedule_selector = QComboBox(self)  # 下拉列表选择日程
+        self.schedule_selector = QComboBox(self) # 下拉列表选择日程
+        self.zone_name_input = QLineEdit(self)
+        self.zone_description_input = QLineEdit(self)  
         self.setupUI()
         self.populate_schedule_selector()  # 填充下拉列表
 
@@ -19,6 +21,8 @@ class EventDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.addRow('Event Name:', self.event_name_input)
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
+        form_layout.addRow('Zone Name:', self.zone_name_input)
+        form_layout.addRow('Zone Description:', self.zone_description_input)
         layout.addLayout(form_layout)
 
         # 创建按钮组
@@ -36,40 +40,65 @@ class EventDialog(QDialog):
 
     def saveEvent(self):
         event_name = self.event_name_input.text().strip()  # 使用 strip() 移除可能的空白字符
+        zone_name = self.zone_name_input.text().strip()
+
         if not event_name:  # 如果事件名称为空
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息
             return  # 退出方法，不继续执行后面的保存操作
-
+    
+        if not zone_name:
+            QMessageBox.critical(self, "Error", "Zone name cannot be empty.")  # 显示错误消息
+            return  # 退出方法，不继续执行后面的保存操作
+    
+        zone_description = self.zone_description_input.text().strip()
         selected_schedule = self.schedule_selector.currentText()  # 获取选定的日程
-        self.createEventXML(event_name, selected_schedule)
+    
+        if not self.createEventXML(event_name, selected_schedule, zone_name, zone_description):
+            return  # 如果 createEventXML 返回 False，则不关闭对话框
+
+        # 如果一切顺利，则可以接受对话框并关闭
         self.accept()
 
-    def createEventXML(self, event_name, schedule_name):
+    def createEventXML(self, event_name, schedule_name, zone_name, zone_description):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
-        
+    
         if os.path.exists(filename):
             tree = ET.parse(filename)
             root = tree.getroot()
-            # 假设每个日程文件中只有一个building元素
             building = root.find('.//building')
             if building is not None:
-                # 在找到的<building>内部创建并添加<event>元素
-                event = ET.SubElement(building, 'event', ID=event_name)
+            # 在building元素中寻找与提供的zone_name匹配的zone元素
+                zone = None
+                for zn in building.findall('.//zone'):
+                    if zn.get('ID') == zone_name:
+                        zone = zn
+                        break
+
+                if zone is None:
+                    zone = ET.SubElement(building, 'zone', ID=zone_name, description=zone_description)
+
+                # 检查当前区域内是否已有相同名称的event
+                existing_event = zone.find(f".//event[@ID='{event_name}']")
+                if existing_event is not None:
+                    QMessageBox.critical(self, "Error", f"{event_name} already exists in {zone_name}.")
+                    return False
+
+                event = ET.SubElement(zone, 'event', ID=event_name)
                 ET.SubElement(event, 'eventTime')
                 setpoint = ET.SubElement(event, 'setpoint', value="", type="")
                 rrule = ET.SubElement(event, 'rrule')
                 ET.SubElement(rrule, 'repeat')
                 ET.SubElement(rrule, 'excDay')
-            else:
-                # 如果没有找到building元素，可能需要处理错误或创建一个新的building元素
-                # 这取决于你的具体需求
-                print("No building element found in the schedule.")
-        else:
-            # 如果文件不存在（理论上不应该发生），创建新的根元素
-            print("Schedule file does not exist.")
 
-        tree = ET.ElementTree(root)
-        tree.write(filename, encoding='utf-8', xml_declaration=True)
+                tree = ET.ElementTree(root)
+                tree.write(filename, encoding='utf-8', xml_declaration=True)
+                return True  # 创建成功
+            else:
+                QMessageBox.critical(self, "Error", "No building element found in the schedule.")
+                return False  # 建筑元素未找到
+        else:
+            QMessageBox.critical(self, "Error", "Schedule file does not exist.")  # 显示错误消息
+            return False  # 文件不存在
 
 
