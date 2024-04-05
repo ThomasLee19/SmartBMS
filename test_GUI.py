@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayou
 from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QMessageBox
 from PySide6.QtCore import Qt, QDate
 from datetime import datetime, timedelta
+import xml.etree.ElementTree as ET
 import os
 import glob
 from test_event import EventDialog
@@ -150,18 +151,24 @@ class CalendarView(QMainWindow):
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
         if dialog.exec() == QDialog.Accepted and dialog.operation_successful:
-            schedule_name = dialog.name_input.text()
+            schedule_name = dialog.name_input.text().strip()
+            building_name = dialog.building_id_input.text().strip()
+            display_name = f"{schedule_name} - {building_name}"
+        
+            # 检查列表中是否已存在该日程
+            is_existing = any(item.text() == display_name for item in self.schedule_list.findItems(display_name, Qt.MatchExactly))
 
-            # 检查该名称是否已经存在于列表中
-            is_existing = False
-            for i in range(self.schedule_list.count()):
-                if self.schedule_list.item(i).text() == schedule_name:
-                    is_existing = True
-                    break
-
-            # 如果名称不存在于列表中，才添加新项
+            # 如果日程不存在于列表中，添加新项
             if not is_existing:
-                self.schedule_list.addItem(schedule_name)
+                self.schedule_list.addItem(display_name)
+
+    def getBuildingNameFromSchedule(self, schedule_file):
+        tree = ET.parse(schedule_file)
+        root = tree.getroot()
+        building_element = root.find('.//building')
+        if building_element is not None:
+            return building_element.get('ID', '')  # 返回Building ID属性
+        return ''
     
     def loadSchedules(self):
         # 设置存储日程的文件夹
@@ -175,7 +182,9 @@ class CalendarView(QMainWindow):
         schedule_files = glob.glob(os.path.join(schedules_dir, '*.xml'))
         for filepath in schedule_files:
             schedule_name = os.path.splitext(os.path.basename(filepath))[0]
-            self.schedule_list.addItem(schedule_name)
+            building_name = self.getBuildingNameFromSchedule(filepath)  # 获取Building名称
+            display_name = f"{schedule_name} - {building_name}" 
+            self.schedule_list.addItem(display_name)  # 显示“Schedule Name + Building Name”
 
 def main():
     app = QApplication(sys.argv)
