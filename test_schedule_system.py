@@ -1,5 +1,4 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox
-from PySide6.QtWidgets import QMessageBox, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QMessageBox 
 from PySide6.QtCore import Signal
 import xml.etree.ElementTree as ET
 import glob

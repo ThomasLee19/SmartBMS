@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox
 from PySide6.QtWidgets import QMessageBox, QHBoxLayout, QPushButton, QWidget
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 import xml.etree.ElementTree as ET
 import os
 
@@ -54,6 +54,14 @@ class ListItemWidget(QWidget):
                 self.removed.emit(self.label.text())  # 发出信号，传递日程名称
             except Exception as e:
                 QMessageBox.critical(self, 'Remove Failed', str(e))
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.showScheduleDetails()
+    
+    def showScheduleDetails(self):
+        dialog = ScheduleDetailsDialog(self.schedule_file, self.parent())
+        dialog.exec_()
     
 class CreateZoneDialog(QDialog):
     def __init__(self, schedule_file, parent=None):
@@ -118,3 +126,37 @@ class CreateZoneDialog(QDialog):
         tree.write(self.schedule_file, encoding='utf-8', xml_declaration=True)
         QMessageBox.information(self, "Success", f"Zone '{zone_name}' has been added successfully.")
         self.accept()
+
+class ScheduleDetailsDialog(QDialog):
+    def __init__(self, schedule_file, parent=None):
+        super().__init__(parent)
+        self.schedule_file = schedule_file
+        self.setWindowTitle('Schedule Details')
+        self.setupUI()
+
+    def setupUI(self):
+        layout = QVBoxLayout(self)
+        self.zone_list = QVBoxLayout()  # 用于展示Zone信息的布局
+        layout.addLayout(self.zone_list)
+        
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Close, self)
+        self.button_box.rejected.connect(self.reject)
+        layout.addWidget(self.button_box)
+        
+        self.loadZones()
+
+    def loadZones(self):
+        try:
+            tree = ET.parse(self.schedule_file)
+            root = tree.getroot()
+            building = root.find('.//building')
+            if building:
+                for zone in building.findall('.//zone'):
+                    zone_id = zone.get('ID')
+                    zone_desc = zone.get('description', 'No description provided')
+                    label = QLabel(f'Zone Name: {zone_id}\nZone Description: {zone_desc}')
+                    self.zone_list.addWidget(label)
+            else:
+                QMessageBox.critical(self, "Error", "No building element found in the schedule.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
