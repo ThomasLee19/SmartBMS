@@ -10,7 +10,8 @@ class EventDialog(QDialog):
         self.event_name_input = QLineEdit(self)
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_name_input = QLineEdit(self)
-        self.zone_description_input = QLineEdit(self)  
+        self.zone_description_input = QLineEdit(self)
+        self.outstation_identifier_input = QLineEdit(self) 
         self.setupUI()
         self.populate_schedule_selector()  # 填充下拉列表
 
@@ -23,6 +24,7 @@ class EventDialog(QDialog):
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
         form_layout.addRow('Zone Name:', self.zone_name_input)
         form_layout.addRow('Zone Description:', self.zone_description_input)
+        form_layout.addRow('Outstation Identifier:', self.outstation_identifier_input)
         layout.addLayout(form_layout)
 
         # 创建按钮组
@@ -41,6 +43,7 @@ class EventDialog(QDialog):
     def saveEvent(self):
         event_name = self.event_name_input.text().strip()  # 使用 strip() 移除可能的空白字符
         zone_name = self.zone_name_input.text().strip()
+        outstation_identifier = self.outstation_identifier_input.text().strip()
 
         if not event_name:  # 如果事件名称为空
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息
@@ -49,17 +52,21 @@ class EventDialog(QDialog):
         if not zone_name:
             QMessageBox.critical(self, "Error", "Zone name cannot be empty.")  # 显示错误消息
             return  # 退出方法，不继续执行后面的保存操作
+        
+        if not outstation_identifier:
+            QMessageBox.critical(self, "Error", "Outstation Identifier cannot be empty.")
+            return
     
         zone_description = self.zone_description_input.text().strip()
         selected_schedule = self.schedule_selector.currentText()  # 获取选定的日程
     
-        if not self.createEventXML(event_name, selected_schedule, zone_name, zone_description):
+        if not self.createEventXML(event_name, selected_schedule, zone_name, zone_description, outstation_identifier):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
         self.accept()
 
-    def createEventXML(self, event_name, schedule_name, zone_name, zone_description):
+    def createEventXML(self, event_name, schedule_name, zone_name, zone_description, outstation_identifier):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
     
@@ -68,13 +75,19 @@ class EventDialog(QDialog):
             root = tree.getroot()
             building = root.find('.//building')
             if building is not None:
-            # 在building元素中寻找与提供的zone_name匹配的zone元素
-                zone = None
+                found_zone_name = None  # 初始化变量，用于保存找到的区域名称
+                # 检查outstation-identifier是否在其他区域已被使用
                 for zn in building.findall('.//zone'):
-                    if zn.get('ID') == zone_name:
-                        zone = zn
-                        break
+                    existing_outstation_event = zn.find(f".//event[@outstation='{outstation_identifier}']")
+                    if existing_outstation_event is not None and zn.get('ID') != zone_name:
+                        found_zone_name = zn.get('ID')  # 保存使用了outstation-identifier的区域名称
+                        break  # 找到后退出循环
 
+                if found_zone_name is not None:
+                    QMessageBox.critical(self, "Error", f"Outstation Identifier '{outstation_identifier}' is already used in {found_zone_name}.")
+                    return False
+                
+                zone = building.find(f".//zone[@ID='{zone_name}']")
                 if zone is None:
                     zone = ET.SubElement(building, 'zone', ID=zone_name, description=zone_description)
 
@@ -84,7 +97,7 @@ class EventDialog(QDialog):
                     QMessageBox.critical(self, "Error", f"{event_name} already exists in {zone_name}.")
                     return False
 
-                event = ET.SubElement(zone, 'event', ID=event_name)
+                event = ET.SubElement(zone, 'event', ID=event_name, outstation=outstation_identifier)
                 ET.SubElement(event, 'eventTime')
                 setpoint = ET.SubElement(event, 'setpoint', value="", type="")
                 rrule = ET.SubElement(event, 'rrule')
