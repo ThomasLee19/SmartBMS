@@ -9,11 +9,12 @@ class EventDialog(QDialog):
         self.setWindowTitle('Create New Event')
         self.event_name_input = QLineEdit(self)
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
-        self.zone_name_input = QLineEdit(self)
-        self.zone_description_input = QLineEdit(self)
+        self.zone_selector = QComboBox(self)  # 下拉列表选择区域
         self.outstation_identifier_input = QLineEdit(self) 
         self.setupUI()
         self.populate_schedule_selector()  # 填充下拉列表
+        # 连接日程选择器的信号以填充区域选择器
+        self.schedule_selector.currentIndexChanged.connect(self.populate_zone_selector)
 
     def setupUI(self):
         layout = QVBoxLayout(self)
@@ -22,8 +23,7 @@ class EventDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.addRow('Event Name:', self.event_name_input)
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
-        form_layout.addRow('Zone Name:', self.zone_name_input)
-        form_layout.addRow('Zone Description:', self.zone_description_input)
+        form_layout.addRow('Zone:', self.zone_selector)
         form_layout.addRow('Outstation Identifier:', self.outstation_identifier_input)
         layout.addLayout(form_layout)
 
@@ -34,39 +34,59 @@ class EventDialog(QDialog):
         layout.addWidget(self.button_box)
 
     def populate_schedule_selector(self):
+        self.schedule_selector.clear() 
+        self.schedule_selector.addItem("Please select one of the following schedules", None) 
+
         schedules_dir = 'Schedules'
         schedule_files = glob.glob(os.path.join(schedules_dir, '*.xml'))
         for filepath in schedule_files:
             schedule_name = os.path.splitext(os.path.basename(filepath))[0]
-            self.schedule_selector.addItem(schedule_name)
+            self.schedule_selector.addItem(schedule_name, filepath)  # 设置userData为文件路径 
+        
+        self.schedule_selector.setCurrentIndex(0)
+
+    def populate_zone_selector(self):
+        self.zone_selector.clear()  # 清除之前的选项
+        selected_schedule_path = self.schedule_selector.currentData()  # 获取选中的日程文件路径
+        if selected_schedule_path:
+            try:
+                tree = ET.parse(selected_schedule_path)
+                root = tree.getroot()
+                building = root.find('.//building')
+                if building:
+                    for zone in building.findall('.//zone'):
+                        zone_id = zone.get('ID')
+                        self.zone_selector.addItem(zone_id)  # 添加区域ID到下拉列表
+            except ET.ParseError as e:
+                QMessageBox.critical(self, "Error", "Failed to parse the schedule file.")
+
 
     def saveEvent(self):
-        event_name = self.event_name_input.text().strip()  # 使用 strip() 移除可能的空白字符
-        zone_name = self.zone_name_input.text().strip()
+        event_name = self.event_name_input.text().strip()
+        zone_name = self.zone_selector.currentText()
         outstation_identifier = self.outstation_identifier_input.text().strip()
 
         if not event_name:  # 如果事件名称为空
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息
             return  # 退出方法，不继续执行后面的保存操作
-    
+        
         if not zone_name:
-            QMessageBox.critical(self, "Error", "Zone name cannot be empty.")  # 显示错误消息
-            return  # 退出方法，不继续执行后面的保存操作
+            QMessageBox.critical(self, "Error", "Zone must be selected.")
+            return
         
         if not outstation_identifier:
             QMessageBox.critical(self, "Error", "Outstation Identifier cannot be empty.")
             return
     
-        zone_description = self.zone_description_input.text().strip()
         selected_schedule = self.schedule_selector.currentText()  # 获取选定的日程
     
-        if not self.createEventXML(event_name, selected_schedule, zone_name, zone_description, outstation_identifier):
+        if not self.createEventXML(event_name, selected_schedule, zone_name, outstation_identifier):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
         self.accept()
 
-    def createEventXML(self, event_name, schedule_name, zone_name, zone_description, outstation_identifier):
+    def createEventXML(self, event_name, schedule_name, zone_name, outstation_identifier):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
     
@@ -75,28 +95,24 @@ class EventDialog(QDialog):
             root = tree.getroot()
             building = root.find('.//building')
             if building is not None:
-                found_zone_name = None  # 初始化变量，用于保存找到的区域名称
                 # 检查outstation-identifier是否在其他区域已被使用
                 for zn in building.findall('.//zone'):
                     existing_outstation_event = zn.find(f".//event[@outstation='{outstation_identifier}']")
                     if existing_outstation_event is not None and zn.get('ID') != zone_name:
-                        found_zone_name = zn.get('ID')  # 保存使用了outstation-identifier的区域名称
-                        break  # 找到后退出循环
-
-                if found_zone_name is not None:
-                    QMessageBox.critical(self, "Error", f"Outstation Identifier '{outstation_identifier}' is already used in {found_zone_name}.")
-                    return False
-                
+                        found_zone_name = zn.get('ID')
+                        QMessageBox.critical(self, "Error", f"Outstation Identifier '{outstation_identifier}' is already used in {found_zone_name}.")
+                        return False
+            
+                # 直接获取选择的zone元素，不需要检查是否存在，因为用户是从已有区域中选择的
                 zone = building.find(f".//zone[@ID='{zone_name}']")
-                if zone is None:
-                    zone = ET.SubElement(building, 'zone', ID=zone_name, description=zone_description)
-
+            
                 # 检查当前区域内是否已有相同名称的event
                 existing_event = zone.find(f".//event[@ID='{event_name}']")
                 if existing_event is not None:
                     QMessageBox.critical(self, "Error", f"{event_name} already exists in {zone_name}.")
                     return False
 
+                # 创建新的event元素
                 event = ET.SubElement(zone, 'event', ID=event_name, outstation=outstation_identifier)
                 ET.SubElement(event, 'eventTime')
                 setpoint = ET.SubElement(event, 'setpoint', value="", type="")
@@ -104,14 +120,14 @@ class EventDialog(QDialog):
                 ET.SubElement(rrule, 'repeat')
                 ET.SubElement(rrule, 'excDay')
 
-                tree = ET.ElementTree(root)
                 tree.write(filename, encoding='utf-8', xml_declaration=True)
                 return True  # 创建成功
             else:
                 QMessageBox.critical(self, "Error", "No building element found in the schedule.")
-                return False # 创建失败
+                return False
         else:
             QMessageBox.critical(self, "Error", "Schedule file does not exist.")
             return False
+
 
 
