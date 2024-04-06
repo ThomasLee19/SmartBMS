@@ -1,10 +1,14 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QMessageBox
-from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox
+from PySide6.QtWidgets import QMessageBox, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtCore import Signal
 import xml.etree.ElementTree as ET
 import glob
 import os
 
 class CreateScheduleDialog(QDialog):
+
+    schedule_created = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.operation_successful = False
@@ -36,7 +40,7 @@ class CreateScheduleDialog(QDialog):
         schedule_name = self.name_input.text().strip()  # 使用 strip() 移除前后空白字符
         building_id = self.building_id_input.text().strip()
 
-        # 检查名称和Building ID是否为空
+        # 检查Schedule Name和Building ID是否为空
         if not schedule_name or not building_id:  # 检查名称是否为空
             QMessageBox.critical(self, "Error", "Schedule name and Building ID cannot be empty.")  # 显示错误消息
             return  # 返回，不继续执行保存逻辑
@@ -61,6 +65,7 @@ class CreateScheduleDialog(QDialog):
         else:
             self.createScheduleXML(schedule_name, building_id)
             self.operation_successful = True  # 设置操作成功标志
+            self.schedule_created.emit()  # 日程创建成功，发射信号
             self.accept()
         
     def confirm_replacement(self, filename, building_id):
@@ -73,7 +78,8 @@ class CreateScheduleDialog(QDialog):
 
         if reply == QMessageBox.Yes:
             self.createScheduleXML(base_name, building_id)
-            self.operation_successful = True  # 用户确认替换，操作成功
+            self.operation_successful = True
+            self.schedule_created.emit()  # 用户确认替换，操作成功
             self.accept()
         else:
              self.operation_successful = False  # 用户选择不替换时，设置操作未成功
@@ -89,7 +95,6 @@ class CreateScheduleDialog(QDialog):
                 schedule_name = root.attrib.get('name')  # 获取该schedule的name属性
                 return (True, schedule_name)  # 返回True和schedule名称
         return None  # 如果没有找到重复，返回None
-
 
     def createScheduleXML(self, schedule_name, building_id):
         # 确保"Schedules"文件夹存在
@@ -109,3 +114,38 @@ class CreateScheduleDialog(QDialog):
         # 创建XML树并写入文件
         tree = ET.ElementTree(schedule)
         tree.write(filename, encoding='utf-8', xml_declaration=True)
+
+class ListItemWidget(QWidget):
+    removed = Signal(str)  # 用于发出信号，传递被删除的日程名称
+
+    def __init__(self, text, schedule_file, parent=None):
+        super().__init__(parent)
+        self.schedule_file = schedule_file
+        self.layout = QHBoxLayout(self)
+        self.label = QLabel(text)
+        self.remove_button = QPushButton('x')
+        self.remove_button.clicked.connect(self.on_remove_button_clicked)
+        self.remove_button.hide()  # 默认隐藏删除按钮
+
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.remove_button)
+        self.setLayout(self.layout)
+
+    def enterEvent(self, event):
+        self.remove_button.show()  # 鼠标进入时显示删除按钮
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.remove_button.hide()  # 鼠标离开时隐藏删除按钮
+        super().leaveEvent(event)
+
+    def on_remove_button_clicked(self):
+        # 弹出确认删除的对话框
+        response = QMessageBox.question(self, 'Remove Schedule', f'Are you sure you want to remove "{self.label.text()}"?', QMessageBox.Yes | QMessageBox.No)
+        if response == QMessageBox.Yes:
+            try:
+                os.remove(self.schedule_file)  # 删除文件
+                self.removed.emit(self.label.text())  # 发出信号，传递日程名称
+            except Exception as e:
+                QMessageBox.critical(self, 'Remove Failed', str(e))
+    

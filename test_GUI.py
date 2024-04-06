@@ -1,13 +1,14 @@
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QDialog
-from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QMessageBox
+from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel
+from PySide6.QtWidgets import QListWidgetItem, QTableWidget, QTableWidgetItem, QMessageBox
 from PySide6.QtCore import Qt, QDate
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import os
 import glob
 from test_event import EventDialog
-from test_schedule_system import CreateScheduleDialog
+from test_schedule_system import CreateScheduleDialog, ListItemWidget
 
 class WeeklyScheduleView(QWidget):  
     def __init__(self, parent=None):
@@ -150,17 +151,9 @@ class CalendarView(QMainWindow):
 
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
+        dialog.schedule_created.connect(self.loadSchedules)  # 连接信号到槽
         if dialog.exec() == QDialog.Accepted and dialog.operation_successful:
-            schedule_name = dialog.name_input.text().strip()
-            building_name = dialog.building_id_input.text().strip()
-            display_name = f"{schedule_name} - {building_name}"
-        
-            # 检查列表中是否已存在该日程
-            is_existing = any(item.text() == display_name for item in self.schedule_list.findItems(display_name, Qt.MatchExactly))
-
-            # 如果日程不存在于列表中，添加新项
-            if not is_existing:
-                self.schedule_list.addItem(display_name)
+            pass
 
     def getBuildingNameFromSchedule(self, schedule_file):
         tree = ET.parse(schedule_file)
@@ -171,6 +164,9 @@ class CalendarView(QMainWindow):
         return ''
     
     def loadSchedules(self):
+
+        self.schedule_list.clear()
+
         # 设置存储日程的文件夹
         schedules_dir = 'Schedules'
         
@@ -184,7 +180,21 @@ class CalendarView(QMainWindow):
             schedule_name = os.path.splitext(os.path.basename(filepath))[0]
             building_name = self.getBuildingNameFromSchedule(filepath)  # 获取Building名称
             display_name = f"{schedule_name} - {building_name}" 
-            self.schedule_list.addItem(display_name)  # 显示“Schedule Name + Building Name”
+            item_widget = ListItemWidget(display_name, filepath)
+            item_widget.removed.connect(self.remove_schedule)  # 连接信号到槽函数
+            item = QListWidgetItem(self.schedule_list)
+            item.setSizeHint(item_widget.sizeHint())
+            self.schedule_list.addItem(item)
+            self.schedule_list.setItemWidget(item, item_widget)
+    
+    def remove_schedule(self, schedule_name):
+        # 找到并删除列表项和文件
+        items = self.schedule_list.findItems(schedule_name, Qt.MatchExactly)
+        if items:
+            for item in items:
+                row = self.schedule_list.row(item)
+                self.schedule_list.takeItem(row)
+        self.loadSchedules() 
 
 def main():
     app = QApplication(sys.argv)

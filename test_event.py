@@ -6,7 +6,7 @@ import glob
 class EventDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Event')
+        self.setWindowTitle('Create New Event')
         self.event_name_input = QLineEdit(self)
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_name_input = QLineEdit(self)
@@ -96,9 +96,9 @@ class EventDialog(QDialog):
                 return True  # 创建成功
             else:
                 QMessageBox.critical(self, "Error", "No building element found in the schedule.")
-                return False  # 建筑元素未找到
+                return False # 创建失败
         else:
-            QMessageBox.critical(self, "Error", "Schedule file does not exist.")  # 显示错误消息
-            return False  # 文件不存在
+            QMessageBox.critical(self, "Error", "Schedule file does not exist.")
+            return False
 
 
