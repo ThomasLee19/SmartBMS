@@ -125,6 +125,10 @@ class ListItemWidget(QWidget):
         self.label = QLabel(text)
         self.remove_button = QPushButton('x')
         self.remove_button.clicked.connect(self.on_remove_button_clicked)
+
+        # 设置x按钮的固定大小
+        self.remove_button.setFixedSize(20, 20)
+
         self.remove_button.hide()  # 默认隐藏删除按钮
 
         self.layout.addWidget(self.label)
