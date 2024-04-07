@@ -55,11 +55,28 @@ class ListItemWidget(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, 'Remove Failed', str(e))
 
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.showScheduleDetails()
+    def mousePressEvent(self, event):
+            if event.button() == Qt.RightButton:
+                self.showScheduleDetails()
+            super().mousePressEvent(event)
+
     
     def showScheduleDetails(self):
+        try:
+            tree = ET.parse(self.schedule_file)
+            root = tree.getroot()
+            building = root.find('.//building')
+            if building is None:
+                QMessageBox.critical(self, "Error", "No building element found in the schedule.")
+                return  # 如果没有找到 building 元素，直接返回，不打开对话框
+            zones = building.findall('.//zone')
+            if not zones:  # 检查是否存在 zone 元素
+                QMessageBox.critical(self, "Error", "No zones found in the building.")
+                return  # 如果没有找到 zone 元素，直接返回，不打开对话框
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+            return  # 如果解析文件时出现异常，直接返回，不打开对话框
+
         dialog = ScheduleDetailsDialog(self.schedule_file, self.parent())
         dialog.exec_()
     
@@ -158,5 +175,7 @@ class ScheduleDetailsDialog(QDialog):
                     self.zone_list.addWidget(label)
             else:
                 QMessageBox.critical(self, "Error", "No building element found in the schedule.")
+                self.reject()
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+            self.reject()
