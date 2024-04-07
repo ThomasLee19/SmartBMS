@@ -8,7 +8,8 @@ import xml.etree.ElementTree as ET
 import os
 import glob
 from test_event import EventDialog
-from test_schedule_system import CreateScheduleDialog, ListItemWidget, CreateZoneDialog
+from test_schedule_system import CreateScheduleDialog
+from test_zone import ListItemWidget
 
 class WeeklyScheduleView(QWidget):  
     def __init__(self, parent=None):
