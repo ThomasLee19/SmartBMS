@@ -2,7 +2,8 @@ import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QDialog
 from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel
 from PySide6.QtWidgets import QListWidgetItem, QTableWidget, QTableWidgetItem, QMessageBox
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt, QDate, QDateTime
+from PySide6.QtGui import QColor
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import os
@@ -73,6 +74,48 @@ class WeeklyScheduleView(QWidget):
                 # 将表格项添加到表格中
                 self.tableWidget.setItem(i, j, item)
 
+    def loadEventsFromXML(self, week_start_date):
+        schedules_dir = 'Schedules'
+        schedule_files = glob.glob(os.path.join(schedules_dir, '*.xml'))
+        for filepath in schedule_files:
+            tree = ET.parse(filepath)
+            root = tree.getroot()
+            for event in root.findall('.//event'):
+                event_name = event.get('ID')
+                event_time = event.find('eventTime')
+                start_date_time = QDateTime.fromString(event_time.get('start'), 'yyyyMMddHHmm')
+                end_date_time = QDateTime.fromString(event_time.get('end'), 'yyyyMMddHHmm')
+                
+                # 计算事件在表格中的位置
+                start_index = self.calculatePositionInGrid(start_date_time, week_start_date)
+                end_index = self.calculatePositionInGrid(end_date_time, week_start_date)
+                
+                if start_index is not None and end_index is not None:
+                    for row in range(start_index[0], end_index[0] + 1):
+                        for col in range(start_index[1], end_index[1] + 1):
+                            item = self.tableWidget.item(row, col)
+                            if item is None:
+                                item = QTableWidgetItem()
+                                self.tableWidget.setItem(row, col, item)
+                            item.setText(event_name)
+                            item.setBackground(QColor('blue'))  # 设置背景颜色为蓝色
+
+
+    def calculatePositionInGrid(self, date_time, week_start_date):
+        # 计算给定日期时间在表格中的位置
+        if not week_start_date <= date_time.date() <= week_start_date.addDays(6):
+            return None  # 如果事件不在当前显示的周内，则返回 None
+        
+        # 计算从周开始日期到事件日期的天数差
+        day_offset = date_time.date().daysTo(week_start_date)
+        # 修正 day_offset 为正数，因为我们想要从周开始日期到事件日期的天数
+        day_offset = -day_offset
+        # 计算事件的小时
+        hour = date_time.time().hour()
+        # 计算星期几（列的位置），星期一是0，星期二是1，依此类推
+        day_of_week = date_time.date().dayOfWeek() - 1
+        return (hour, day_of_week)
+    
 class CalendarView(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -135,10 +178,6 @@ class CalendarView(QMainWindow):
         central_widget.setLayout(hbox)
         self.setCentralWidget(central_widget)
 
-    def updateTimeline(self, date):
-        # 当日历中的日期被点击时，更新时间线视图
-        self.timeline_view.setWeekFromDate(date)
-
     def on_new_event_button_clicked(self):
         # 检查是否存在日程
         schedules_dir = 'Schedules'
@@ -146,9 +185,18 @@ class CalendarView(QMainWindow):
             QMessageBox.warning(self, "Warning", "You haven't created a schedule yet. \nPlease create a schedule before adding events.")
         else:
             dialog = EventDialog(self)
+            dialog.event_created.connect(self.refreshEvents)
             if dialog.exec() == QDialog.Accepted:
-                # 这里可以添加代码处理对话框的返回结果
-                pass
+                pass  
+
+    def refreshEvents(self):
+        week_start_date = QDate.currentDate().addDays(-QDate.currentDate().dayOfWeek() + 1)
+        self.timeline_view.loadEventsFromXML(week_start_date)
+
+    def updateTimeline(self, date):
+        # 当日历中的日期被点击时，更新时间线视图
+        self.timeline_view.setWeekFromDate(date)
+        self.refreshEvents()
 
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
@@ -187,6 +235,9 @@ class CalendarView(QMainWindow):
             item.setSizeHint(item_widget.sizeHint())
             self.schedule_list.addItem(item)
             self.schedule_list.setItemWidget(item, item_widget)
+        
+        # 加载事件到时间线
+        self.refreshEvents()
     
     def remove_schedule(self, schedule_name):
         # 找到并删除列表项和文件

@@ -1,12 +1,15 @@
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QDialogButtonBox
 from PySide6.QtWidgets import QVBoxLayout, QComboBox, QMessageBox
 from PySide6.QtWidgets import QDateTimeEdit
-from PySide6.QtCore import QDateTime, QDate, QTime
+from PySide6.QtCore import QDateTime, Signal
 import xml.etree.ElementTree as ET
 import os
 import glob
 
 class EventDialog(QDialog):
+
+    event_created = Signal() 
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Create New Event')
@@ -111,6 +114,7 @@ class EventDialog(QDialog):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
+        self.event_created.emit()
         self.accept()
 
     def createEventXML(self, event_name, start_date_time, end_date_time, schedule_name, zone_name, outstation_identifier):
