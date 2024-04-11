@@ -75,6 +75,8 @@ class WeeklyScheduleView(QWidget):
                 self.tableWidget.setItem(i, j, item)
 
     def loadEventsFromXML(self, week_start_date):
+        # 清除之前的事件再加载新的事件
+        self.clearEvents()
         schedules_dir = 'Schedules'
         schedule_files = glob.glob(os.path.join(schedules_dir, '*.xml'))
         for filepath in schedule_files:
@@ -83,38 +85,60 @@ class WeeklyScheduleView(QWidget):
             for event in root.findall('.//event'):
                 event_name = event.get('ID')
                 event_time = event.find('eventTime')
-                start_date_time = QDateTime.fromString(event_time.get('start'), 'yyyyMMddHHmm')
-                end_date_time = QDateTime.fromString(event_time.get('end'), 'yyyyMMddHHmm')
+                start_date_time_str = event_time.get('start')
+                end_date_time_str = event_time.get('end')
                 
-                # 计算事件在表格中的位置
-                start_index = self.calculatePositionInGrid(start_date_time, week_start_date)
-                end_index = self.calculatePositionInGrid(end_date_time, week_start_date)
-                
-                if start_index is not None and end_index is not None:
-                    for row in range(start_index[0], end_index[0] + 1):
-                        for col in range(start_index[1], end_index[1] + 1):
-                            item = self.tableWidget.item(row, col)
-                            if item is None:
-                                item = QTableWidgetItem()
-                                self.tableWidget.setItem(row, col, item)
-                            item.setText(event_name)
-                            item.setBackground(QColor('blue'))  # 设置背景颜色为蓝色
-
+                # 将字符串格式的日期时间转换为datetime对象
+                start_date_time = self.parse_datetime_from_string(start_date_time_str)
+                end_date_time = self.parse_datetime_from_string(end_date_time_str)
+                                
+                # 只加载在当前周显示的事件
+                if self.isDateInCurrentWeek(start_date_time.date(), week_start_date):
+                    # 计算事件在网格中的位置
+                    start_index = self.calculatePositionInGrid(start_date_time, week_start_date)
+                    end_index = self.calculatePositionInGrid(end_date_time, week_start_date)
+                    
+                    if start_index is not None and end_index is not None:
+                        # 检查事件的确切日期是否与表格中的日期匹配
+                        event_day = start_date_time.date().weekday()
+                        event_date = week_start_date.addDays(event_day)
+                        if start_date_time.date() == event_date:
+                            # 如果事件的日期与表格中的日期相匹配，则添加到表格中
+                            for hour in range(start_index[0], end_index[0] + 1):
+                                item = self.tableWidget.item(hour, event_day)
+                                if item is None:
+                                    item = QTableWidgetItem()
+                                    self.tableWidget.setItem(hour, event_day, item)
+                                item.setText(event_name)
+                                item.setBackground(QColor('blue'))  # 设置背景颜色为蓝色
 
     def calculatePositionInGrid(self, date_time, week_start_date):
-        # 计算给定日期时间在表格中的位置
-        if not week_start_date <= date_time.date() <= week_start_date.addDays(6):
-            return None  # 如果事件不在当前显示的周内，则返回 None
+
+        # 首先将QDate转换为datetime.date对象
+        week_start_date_py = datetime(week_start_date.year(), week_start_date.month(), week_start_date.day()).date()
         
         # 计算从周开始日期到事件日期的天数差
-        day_offset = date_time.date().daysTo(week_start_date)
-        # 修正 day_offset 为正数，因为我们想要从周开始日期到事件日期的天数
-        day_offset = -day_offset
+        day_offset = (date_time.date() - week_start_date_py).days
         # 计算事件的小时
-        hour = date_time.time().hour()
+        hour = date_time.hour  # 正确获取小时数
         # 计算星期几（列的位置），星期一是0，星期二是1，依此类推
-        day_of_week = date_time.date().dayOfWeek() - 1
+        day_of_week = date_time.weekday()
+        
         return (hour, day_of_week)
+
+    def isDateInCurrentWeek(self, date, week_start_date):
+        # Check if the date is in the week starting on week_start_date
+        week_end_date = week_start_date.addDays(6)
+        return week_start_date <= date <= week_end_date
+
+    def clearEvents(self):
+        # Clear all the events from the table before loading new ones
+        for i in range(24):  # For each hour
+            for j in range(7):  # For each day of the week
+                self.tableWidget.setItem(i, j, QTableWidgetItem(''))
+
+    def parse_datetime_from_string(self, date_time_str):
+        return datetime.strptime(date_time_str, '%Y%m%d%H%M')
     
 class CalendarView(QMainWindow):
     def __init__(self):
@@ -178,6 +202,11 @@ class CalendarView(QMainWindow):
         central_widget.setLayout(hbox)
         self.setCentralWidget(central_widget)
 
+    def refreshEvents(self, date):
+        # 计算所选日期所在周的周一日期
+        week_start_date = date.addDays(-date.dayOfWeek() + 1)
+        self.timeline_view.loadEventsFromXML(week_start_date)
+
     def on_new_event_button_clicked(self):
         # 检查是否存在日程
         schedules_dir = 'Schedules'
@@ -185,18 +214,21 @@ class CalendarView(QMainWindow):
             QMessageBox.warning(self, "Warning", "You haven't created a schedule yet. \nPlease create a schedule before adding events.")
         else:
             dialog = EventDialog(self)
-            dialog.event_created.connect(self.refreshEvents)
+            # 当事件被创建时，连接event_created信号到refreshEvents函数
+            dialog.event_created.connect(self.on_event_created)
             if dialog.exec() == QDialog.Accepted:
-                pass  
-
-    def refreshEvents(self):
-        week_start_date = QDate.currentDate().addDays(-QDate.currentDate().dayOfWeek() + 1)
-        self.timeline_view.loadEventsFromXML(week_start_date)
+                # 如果用户成功创建了一个事件，刷新事件显示
+                pass
+    
+    def on_event_created(self, event_date):
+        self.timeline_view.setWeekFromDate(event_date)
+        self.refreshEvents(event_date)
 
     def updateTimeline(self, date):
         # 当日历中的日期被点击时，更新时间线视图
+        self.timeline_view.clearEvents()
         self.timeline_view.setWeekFromDate(date)
-        self.refreshEvents()
+        self.refreshEvents(date)  # 传递所选日期
 
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
@@ -237,7 +269,8 @@ class CalendarView(QMainWindow):
             self.schedule_list.setItemWidget(item, item_widget)
         
         # 加载事件到时间线
-        self.refreshEvents()
+        current_date = QDate.currentDate()  # 获取当前日期
+        self.refreshEvents(current_date)  # 使用当前日期刷新事件
     
     def remove_schedule(self, schedule_name):
         # 找到并删除列表项和文件

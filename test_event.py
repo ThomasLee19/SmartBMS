@@ -1,14 +1,14 @@
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QDialogButtonBox
 from PySide6.QtWidgets import QVBoxLayout, QComboBox, QMessageBox
 from PySide6.QtWidgets import QDateTimeEdit
-from PySide6.QtCore import QDateTime, Signal
+from PySide6.QtCore import QDate, QDateTime, Signal
 import xml.etree.ElementTree as ET
 import os
 import glob
 
 class EventDialog(QDialog):
 
-    event_created = Signal() 
+    event_created = Signal(QDate) 
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -114,8 +114,13 @@ class EventDialog(QDialog):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
-        self.event_created.emit()
+        new_event_date = self.get_new_event_date()
+        self.event_created.emit(new_event_date)
         self.accept()
+
+    def get_new_event_date(self):
+        # 返回用户在日期时间选择器中选择的事件开始日期
+        return self.start_date_time_edit.date()
 
     def createEventXML(self, event_name, start_date_time, end_date_time, schedule_name, zone_name, outstation_identifier):
         schedules_dir = 'Schedules'
