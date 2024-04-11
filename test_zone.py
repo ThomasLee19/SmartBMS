@@ -59,8 +59,7 @@ class ListItemWidget(QWidget):
             if event.button() == Qt.RightButton:
                 self.showScheduleDetails()
             super().mousePressEvent(event)
-
-    
+  
     def showScheduleDetails(self):
         try:
             tree = ET.parse(self.schedule_file)
