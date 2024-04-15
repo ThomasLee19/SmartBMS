@@ -1,7 +1,7 @@
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget,  QPushButton
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
 from PySide6.QtCore import QDate
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QBrush
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
@@ -75,45 +75,45 @@ class WeeklyScheduleView(QWidget):
         for event in root.findall('.//event'):
             event_name = event.get('ID')
             event_time = event.find('eventTime')
-            start_date_time_str = event_time.get('start')
-            end_date_time_str = event_time.get('end')
-                
+            date_time_str = event_time.text.strip().strip('"')
+
             # 将字符串格式的日期时间转换为datetime对象
-            start_date_time = self.parse_datetime_from_string(start_date_time_str)
-            end_date_time = self.parse_datetime_from_string(end_date_time_str)
-                                
+            date_time = self.parse_datetime_from_string(date_time_str)
+
             # 只加载在当前周显示的事件
-            if self.isDateInCurrentWeek(start_date_time.date(), week_start_date):
+            if self.isDateInCurrentWeek(date_time.date(), week_start_date):
                 # 计算事件在网格中的位置
-                start_index = self.calculatePositionInGrid(start_date_time, week_start_date)
-                end_index = self.calculatePositionInGrid(end_date_time, week_start_date)
-                    
-                if start_index is not None and end_index is not None:
-                    # 检查事件的确切日期是否与表格中的日期匹配
-                    event_day = start_date_time.date().weekday()
-                    event_date = week_start_date.addDays(event_day)
-                    if start_date_time.date() == event_date:
-                        # 如果事件的日期与表格中的日期相匹配，则添加到表格中
-                        for hour in range(start_index[0], end_index[0] + 1):
-                            item = self.tableWidget.item(hour, event_day)
-                            if item is None:
-                                item = QTableWidgetItem()
-                                self.tableWidget.setItem(hour, event_day, item)
-                            item.setText(event_name)
-                            item.setBackground(QColor('blue'))  # 设置背景颜色为蓝色
+                start_index = self.calculatePositionInGrid(date_time, week_start_date)
+
+                if start_index is not None:
+                    hour, event_day = start_index
+                    # 设置表格中对应的项
+                    item = self.tableWidget.item(hour, event_day)
+                    if item is None:
+                        item = QTableWidgetItem()
+                        self.tableWidget.setItem(hour, event_day, item)
+
+                    time_display = date_time.strftime('%H:%M')
+
+                    # 设置文本为事件名称和时间
+                    new_item_text = f"{event_name} {time_display}"
+                    existing_text = item.text()                   
+                    if existing_text:
+                        new_item_text = f"{existing_text}\n---\n{new_item_text}"
+
+                    item.setText(new_item_text)
+                    item.setBackground(QColor('blue'))  # 设置背景颜色为蓝色
+                    item.setForeground(QBrush(QColor('white')))  # 设置字体颜色为白色
 
     def calculatePositionInGrid(self, date_time, week_start_date):
-
         # 首先将QDate转换为datetime.date对象
-        week_start_date_py = datetime(week_start_date.year(), week_start_date.month(), week_start_date.day()).date()
-        
-        # 计算从周开始日期到事件日期的天数差
-        day_offset = (date_time.date() - week_start_date_py).days
+        week_start_date = datetime(week_start_date.year(), week_start_date.month(), week_start_date.day()).date()
+
         # 计算事件的小时
         hour = date_time.hour  # 正确获取小时数
         # 计算星期几（列的位置），星期一是0，星期二是1，依此类推
         day_of_week = date_time.weekday()
-        
+
         return (hour, day_of_week)
 
     def isDateInCurrentWeek(self, date, week_start_date):
@@ -128,4 +128,6 @@ class WeeklyScheduleView(QWidget):
                 self.tableWidget.setItem(i, j, QTableWidgetItem(''))
 
     def parse_datetime_from_string(self, date_time_str):
+        # 去除所有非数字字符
+        date_time_str = ''.join(filter(str.isdigit, date_time_str))
         return datetime.strptime(date_time_str, '%Y%m%d%H%M')

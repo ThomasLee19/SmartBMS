@@ -16,8 +16,7 @@ class EventDialog(QDialog):
         self.event_name_input = QLineEdit(self)
 
         # 创建日期和时间选择器
-        self.start_date_time_edit = QDateTimeEdit(QDateTime.currentDateTime(), self)  
-        self.end_date_time_edit = QDateTimeEdit(QDateTime.currentDateTime(), self)
+        self.date_time_edit = QDateTimeEdit(QDateTime.currentDateTime(), self)  
 
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_selector = QComboBox(self)  # 下拉列表选择区域
@@ -34,10 +33,8 @@ class EventDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.addRow('Event Name:', self.event_name_input)
 
-        self.start_date_time_edit.setCalendarPopup(True)
-        self.end_date_time_edit.setCalendarPopup(True)
-        form_layout.addRow('Start Date and Time:', self.start_date_time_edit)
-        form_layout.addRow('End Date and Time:', self.end_date_time_edit)
+        self.date_time_edit.setCalendarPopup(True)
+        form_layout.addRow('Event Date and Time:', self.date_time_edit)
 
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
         form_layout.addRow('Zone:', self.zone_selector)
@@ -81,9 +78,8 @@ class EventDialog(QDialog):
     def saveEvent(self):
         event_name = self.event_name_input.text().strip()
 
-        # 获取开始和结束时间
-        start_date_str= self.start_date_time_edit.dateTime().toPython()
-        end_date_str= self.end_date_time_edit.dateTime().toPython()
+        # 获取事件时间
+        date_str= self.date_time_edit.dateTime().toPython()
 
         zone_name = self.zone_selector.currentText()
         outstation_identifier = self.outstation_identifier_input.text().strip()
@@ -91,11 +87,6 @@ class EventDialog(QDialog):
         if not event_name:  # 如果事件名称为空
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息
             return  # 退出方法，不继续执行后面的保存操作
-        
-        # 检查结束时间是否大于等于开始时间
-        if end_date_str < start_date_str:
-            QMessageBox.critical(self, "Error", "End time must be greater than or equal to start time.")
-            return
         
         if not zone_name:
             QMessageBox.critical(self, "Error", "Zone must be selected.")
@@ -105,12 +96,11 @@ class EventDialog(QDialog):
             QMessageBox.critical(self, "Error", "Outstation Identifier cannot be empty.")
             return
 
-        start_date_time = start_date_str.strftime('%Y%m%d%H%M')
-        end_date_time = end_date_str.strftime('%Y%m%d%H%M')
+        date_time = date_str.strftime('%Y%m%d%H%M')
 
         selected_schedule = self.schedule_selector.currentText()  # 获取选定的日程
     
-        if not self.createEventXML(event_name, start_date_time, end_date_time, selected_schedule, zone_name, outstation_identifier):
+        if not self.createEventXML(event_name, date_time, selected_schedule, zone_name, outstation_identifier):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
@@ -120,9 +110,9 @@ class EventDialog(QDialog):
 
     def get_new_event_date(self):
         # 返回用户在日期时间选择器中选择的事件开始日期
-        return self.start_date_time_edit.date()
+        return self.date_time_edit.date()
 
-    def createEventXML(self, event_name, start_date_time, end_date_time, schedule_name, zone_name, outstation_identifier):
+    def createEventXML(self, event_name, date_time, schedule_name, zone_name, outstation_identifier):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
     
@@ -150,7 +140,8 @@ class EventDialog(QDialog):
 
                 # 创建新的event元素
                 event = ET.SubElement(zone, 'event', ID=event_name, outstation=outstation_identifier)
-                event_time = ET.SubElement(event, 'eventTime', start=start_date_time, end=end_date_time)
+                event_time = ET.SubElement(event, 'eventTime')
+                event_time.text = f' "{date_time}" '
                 setpoint = ET.SubElement(event, 'setpoint', value="", type="")
                 rrule = ET.SubElement(event, 'rrule')
                 ET.SubElement(rrule, 'repeat')

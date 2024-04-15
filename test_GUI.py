@@ -136,10 +136,6 @@ class CalendarView(QMainWindow):
 
             self.refreshEvents(week_start_date)
 
-        # 如果当前项已经被选中，则清除选中状态
-        if item.isSelected():
-            self.schedule_list.clearSelection()
-
     def getBuildingNameFromSchedule(self, schedule_file):
         tree = ET.parse(schedule_file)
         root = tree.getroot()
