@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import os
 import glob
 
-from test_event import EventDialog
+from test_event_creation import EventDialog
 from test_schedule_system import CreateScheduleDialog
 from test_zone import ListItemWidget
 from test_timeline_view import WeeklyScheduleView
@@ -79,6 +79,7 @@ class CalendarView(QMainWindow):
     def refreshEvents(self, date):
         # 计算所选日期所在周的周一日期
         week_start_date = date.addDays(-date.dayOfWeek() + 1)
+
         # 如果当前有选中的日程文件路径，则加载该日程中的事件
         if self.current_schedule_path:
             self.timeline_view.loadEventsFromXML(self.current_schedule_path, week_start_date)
@@ -116,24 +117,23 @@ class CalendarView(QMainWindow):
             pass
 
     def on_schedule_item_clicked(self, item):
-
         # 获取被点击的日程项对应的ListItemWidget
         item_widget = self.schedule_list.itemWidget(item)
 
         if item_widget:
-            # 获取日程文件路径并更新当前选中的日程文件路径
+            # 更新当前选中的日程文件路径
             self.current_schedule_path = item_widget.schedule_file
+
             # 获取当前时间线视图的周开始日期
             week_start_date_str = self.timeline_view.tableWidget.horizontalHeaderItem(0).text().split('\n')[1]
-             # 获取当前年份
+            # 获取当前年份
             current_year = QDate.currentDate().year()
             # 将年份添加到日期字符串中
             full_date_str = f"{week_start_date_str}/{current_year}"
             # 转换为QDate对象
             week_start_date = QDate.fromString(full_date_str, 'dd/MM/yyyy')
-            # 调用时间线视图的方法来加载该日程中的事件
-            self.timeline_view.loadEventsFromXML(self.current_schedule_path, week_start_date)
 
+            # 调用refreshEvents来更新视图
             self.refreshEvents(week_start_date)
 
     def getBuildingNameFromSchedule(self, schedule_file):
@@ -167,11 +167,11 @@ class CalendarView(QMainWindow):
             item.setSizeHint(item_widget.sizeHint())
             self.schedule_list.addItem(item)
             self.schedule_list.setItemWidget(item, item_widget)
-        
+
         # 加载事件到时间线
         current_date = QDate.currentDate()  # 获取当前日期
         self.refreshEvents(current_date)  # 使用当前日期刷新事件
-    
+        
     def remove_schedule(self, schedule_name):
         # 找到并删除列表项和文件
         items = self.schedule_list.findItems(schedule_name, Qt.MatchExactly)

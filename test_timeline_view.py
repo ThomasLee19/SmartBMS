@@ -1,7 +1,6 @@
 from PySide6.QtWidgets import QVBoxLayout, QWidget,  QPushButton
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
 from PySide6.QtCore import QDate
-from PySide6.QtGui import QColor, QBrush
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
@@ -87,23 +86,26 @@ class WeeklyScheduleView(QWidget):
 
                 if start_index is not None:
                     hour, event_day = start_index
-                    # 设置表格中对应的项
-                    item = self.tableWidget.item(hour, event_day)
-                    if item is None:
-                        item = QTableWidgetItem()
-                        self.tableWidget.setItem(hour, event_day, item)
-
+                    # 获取或创建单元格widget
+                    widget = self.tableWidget.cellWidget(hour, event_day)
+                    if widget is None:
+                        widget = QWidget()
+                        layout = QVBoxLayout()
+                        widget.setLayout(layout)
+                        self.tableWidget.setCellWidget(hour, event_day, widget)
+                    
+                    # 格式化时间显示为HH:MM
                     time_display = date_time.strftime('%H:%M')
+                    button_text = f"{event_name} {time_display}"
+                    button = QPushButton(button_text)
+                    button.setStyleSheet("background-color: blue; color: white;")
+                    widget.layout().addWidget(button)
 
-                    # 设置文本为事件名称和时间
-                    new_item_text = f"{event_name} {time_display}"
-                    existing_text = item.text()                   
-                    if existing_text:
-                        new_item_text = f"{existing_text}\n---\n{new_item_text}"
+                    # 调整行高以适应新的按钮
+                    self.tableWidget.setRowHeight(hour, max(self.tableWidget.rowHeight(hour), button.sizeHint().height() * widget.layout().count()))
 
-                    item.setText(new_item_text)
-                    item.setBackground(QColor('blue'))  # 设置背景颜色为蓝色
-                    item.setForeground(QBrush(QColor('white')))  # 设置字体颜色为白色
+                    # 连接按钮的点击信号到一个槽函数
+                    button.clicked.connect(lambda: self.editEvent(event_name))
 
     def calculatePositionInGrid(self, date_time, week_start_date):
         # 首先将QDate转换为datetime.date对象
@@ -122,10 +124,23 @@ class WeeklyScheduleView(QWidget):
         return week_start_date <= date <= week_end_date
 
     def clearEvents(self):
-        # Clear all the events from the table before loading new ones
+        # Clear all the events from the table and reset row heights
+        default_row_height = 40
         for i in range(24):  # For each hour
             for j in range(7):  # For each day of the week
+                widget = self.tableWidget.cellWidget(i, j)
+                if widget:
+                    # 清除布局中的所有子部件
+                    while widget.layout().count():
+                        child = widget.layout().takeAt(0)
+                        if child.widget():
+                            child.widget().deleteLater()
+                    # 移除现有的widget
+                    self.tableWidget.removeCellWidget(i, j)
+                # 设置一个新的空白QTableWidgetItem
                 self.tableWidget.setItem(i, j, QTableWidgetItem(''))
+            # 重置行高
+            self.tableWidget.setRowHeight(i, default_row_height)
 
     def parse_datetime_from_string(self, date_time_str):
         # 去除所有非数字字符
