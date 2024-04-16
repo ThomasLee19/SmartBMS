@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy, QDialog
 from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel
-from PySide6.QtWidgets import QListWidgetItem, QMessageBox
+from PySide6.QtWidgets import QListWidgetItem, QMessageBox,  QSpacerItem
 from PySide6.QtCore import Qt, QDate
 import xml.etree.ElementTree as ET
 import os
@@ -60,21 +60,58 @@ class CalendarView(QMainWindow):
         self.schedule_list.itemClicked.connect(self.on_schedule_item_clicked) 
         left_vbox.addWidget(self.schedule_list)
 
+        # 创建时间线视图上方的水平布局
+        timeline_top_hbox = QHBoxLayout()
+
+        # 添加一个水平空间（spacer）
+        spacer = QSpacerItem(8.5, 10)
+        timeline_top_hbox.addItem(spacer)
+
+        # 创建“Today”按钮
+        today_button = QPushButton('Today')
+        today_button.clicked.connect(self.on_today_button_clicked)
+        today_button.setFixedSize(80, 40)
+        timeline_top_hbox.addWidget(today_button)
+
+        # 添加一个水平空间
+        spacer = QSpacerItem(20, 10)
+        timeline_top_hbox.addItem(spacer)
+
+        # 创建显示当前年份和月份的标签
+        self.current_date_label = QLabel('Year: 2024, Month: April')
+        font = self.current_date_label.font()  # 获取当前字体
+        font.setPointSize(14)  # 设置字体大小为14点
+        self.current_date_label.setFont(font)  # 应用新的字体设置
+        timeline_top_hbox.addWidget(self.current_date_label)
+
         # 创建中间的时间线视图并将其赋值给self.timeline_view
         self.timeline_view = WeeklyScheduleView(self)
         self.timeline_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # 创建包含时间线视图和其上方布局的垂直布局
+        timeline_vbox = QVBoxLayout()
+        timeline_vbox.addLayout(timeline_top_hbox)
+        timeline_vbox.addWidget(self.timeline_view)
+    
+        # 创建一个QWidget并设置其布局为timeline_vbox
+        timeline_widget = QWidget()
+        timeline_widget.setLayout(timeline_vbox)
 
         # 加载现有的日程到"My Schedule"列表
         self.loadSchedules()
 
         # 将左侧和中间的布局添加到水平布局
         hbox.addLayout(left_vbox, 1)
-        hbox.addWidget(self.timeline_view, 3)
+        hbox.addWidget(timeline_widget, 3)
         
         # 设置中心窗口的布局
         central_widget = QWidget()
         central_widget.setLayout(hbox)
         self.setCentralWidget(central_widget)
+
+    def on_today_button_clicked(self):
+        current_date = QDate.currentDate()  # 获取当前日期
+        self.updateTimeline(current_date)
 
     def refreshEvents(self, date):
         # 计算所选日期所在周的周一日期
