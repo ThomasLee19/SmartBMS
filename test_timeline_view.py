@@ -74,6 +74,7 @@ class WeeklyScheduleView(QWidget):
         for event in root.findall('.//event'):
             event_name = event.get('ID')
             event_time = event.find('eventTime')
+            event_colour = event.get('colour', 'blue')
             date_time_str = event_time.text.strip().strip('"')
 
             # 将字符串格式的日期时间转换为datetime对象
@@ -98,11 +99,14 @@ class WeeklyScheduleView(QWidget):
                     time_display = date_time.strftime('%H:%M')
                     button_text = f"{event_name} {time_display}"
                     button = QPushButton(button_text)
-                    button.setStyleSheet("background-color: blue; color: white;")
+                    button.setStyleSheet(f"background-color: {event_colour}; color: black;")
                     widget.layout().addWidget(button)
 
                     # 调整行高以适应新的按钮
-                    self.tableWidget.setRowHeight(hour, max(self.tableWidget.rowHeight(hour), button.sizeHint().height() * widget.layout().count()))
+                    required_height = button.sizeHint().height() * widget.layout().count()
+                    current_height = self.tableWidget.rowHeight(hour)
+                    if required_height > current_height:
+                        self.tableWidget.setRowHeight(hour, required_height)
 
                     # 连接按钮的点击信号到一个槽函数
                     button.clicked.connect(lambda: self.editEvent(event_name))

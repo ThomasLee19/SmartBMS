@@ -21,10 +21,13 @@ class EventDialog(QDialog):
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_selector = QComboBox(self)  # 下拉列表选择区域
         self.outstation_identifier_input = QLineEdit(self) 
+        self.colour_selector = QComboBox(self) # 下拉列表选择颜色
         self.setupUI()
         self.populate_schedule_selector()  # 填充下拉列表
         # 连接日程选择器的信号以填充区域选择器
         self.schedule_selector.currentIndexChanged.connect(self.populate_zone_selector)
+
+        self.colour_selector.addItems(['Red', 'Green', 'Blue', 'Yellow', 'White', 'Purple'])
 
     def setupUI(self):
         layout = QVBoxLayout(self)
@@ -39,6 +42,7 @@ class EventDialog(QDialog):
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
         form_layout.addRow('Zone:', self.zone_selector)
         form_layout.addRow('Outstation Identifier:', self.outstation_identifier_input)
+        form_layout.addRow('Event Colour:', self.colour_selector)
         layout.addLayout(form_layout)
 
         # 创建按钮组
@@ -83,6 +87,7 @@ class EventDialog(QDialog):
 
         zone_name = self.zone_selector.currentText()
         outstation_identifier = self.outstation_identifier_input.text().strip()
+        colour = self.colour_selector.currentText()
 
         if not event_name:  # 如果事件名称为空
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息
@@ -100,7 +105,7 @@ class EventDialog(QDialog):
 
         selected_schedule = self.schedule_selector.currentText()  # 获取选定的日程
     
-        if not self.createEventXML(event_name, date_time, selected_schedule, zone_name, outstation_identifier):
+        if not self.createEventXML(event_name, date_time, selected_schedule, zone_name, outstation_identifier, colour):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
@@ -112,7 +117,7 @@ class EventDialog(QDialog):
         # 返回用户在日期时间选择器中选择的事件开始日期
         return self.date_time_edit.date()
 
-    def createEventXML(self, event_name, date_time, schedule_name, zone_name, outstation_identifier):
+    def createEventXML(self, event_name, date_time, schedule_name, zone_name, outstation_identifier, colour):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
     
@@ -139,7 +144,7 @@ class EventDialog(QDialog):
                     return False
 
                 # 创建新的event元素
-                event = ET.SubElement(zone, 'event', ID=event_name, outstation=outstation_identifier)
+                event = ET.SubElement(zone, 'event', ID=event_name, outstation=outstation_identifier, colour=colour)
                 event_time = ET.SubElement(event, 'eventTime')
                 event_time.text = f' "{date_time}" '
                 setpoint = ET.SubElement(event, 'setpoint', value="", type="")
@@ -155,6 +160,3 @@ class EventDialog(QDialog):
         else:
             QMessageBox.critical(self, "Error", "Schedule file does not exist.")
             return False
-
-
-
