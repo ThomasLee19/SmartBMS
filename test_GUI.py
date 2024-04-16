@@ -3,6 +3,8 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayou
 from PySide6.QtWidgets import QCalendarWidget, QListWidget, QPushButton, QLabel
 from PySide6.QtWidgets import QListWidgetItem, QMessageBox,  QSpacerItem
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QFont
+from datetime import datetime
 import xml.etree.ElementTree as ET
 import os
 import glob
@@ -78,10 +80,8 @@ class CalendarView(QMainWindow):
         timeline_top_hbox.addItem(spacer)
 
         # 创建显示当前年份和月份的标签
-        self.current_date_label = QLabel('Year: 2024, Month: April')
-        font = self.current_date_label.font()  # 获取当前字体
-        font.setPointSize(14)  # 设置字体大小为14点
-        self.current_date_label.setFont(font)  # 应用新的字体设置
+        self.current_date_label = QLabel() 
+        self.current_date_label.setFont(QFont('Segoe UI', 16)) 
         timeline_top_hbox.addWidget(self.current_date_label)
 
         # 创建中间的时间线视图并将其赋值给self.timeline_view
@@ -147,6 +147,39 @@ class CalendarView(QMainWindow):
         self.timeline_view.setWeekFromDate(date)
         self.refreshEvents(date)  # 传递所选日期
 
+        # 当日历中的日期被点击时，更新年份与月份标签
+        self.updateLabel(date)
+
+    def updateLabel(self, date):
+        start_date = date.addDays(-date.dayOfWeek() + 1)
+        end_date = start_date.addDays(6)
+
+        label_text = self.format_timeline_label(start_date, end_date)
+        self.current_date_label.setText(label_text)  # 更新已存在的标签文本
+
+    def format_timeline_label(self, start_date, end_date):
+        # 清空当前标签
+        self.current_date_label.setText("")
+
+        # 首先将QDate转换为datetime.date对象
+        start_date = datetime(start_date.year(), start_date.month(), start_date.day()).date()
+        end_date = datetime(end_date.year(), end_date.month(), end_date.day()).date()
+
+        # 月份和年份的格式化
+        month_name = start_date.strftime("%B")
+        start_month = start_date.strftime("%b")
+        end_month = end_date.strftime("%b")
+        start_year = start_date.year
+        end_year = end_date.year
+
+        if start_year != end_year:
+            return f"{start_month} {start_year} - {end_month} {end_year}"
+        elif start_date.month != end_date.month:
+            return f"{start_month} - {end_month} {start_year}"
+        else:
+            return f"{month_name} {start_year}"
+
+        
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
         dialog.schedule_created.connect(self.loadSchedules)  # 连接信号到槽
@@ -208,6 +241,7 @@ class CalendarView(QMainWindow):
         # 加载事件到时间线
         current_date = QDate.currentDate()  # 获取当前日期
         self.refreshEvents(current_date)  # 使用当前日期刷新事件
+        self.updateLabel(current_date)
         
     def remove_schedule(self, schedule_name):
         # 找到并删除列表项和文件
