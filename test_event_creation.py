@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QDialogButtonBox
-from PySide6.QtWidgets import QVBoxLayout, QComboBox, QMessageBox
-from PySide6.QtWidgets import QDateTimeEdit
+from PySide6.QtWidgets import QVBoxLayout, QComboBox, QMessageBox, QHBoxLayout
+from PySide6.QtWidgets import QDateTimeEdit, QPushButton, QColorDialog
 from PySide6.QtCore import QDate, QDateTime, Signal
+from PySide6.QtGui import QColor
 import xml.etree.ElementTree as ET
 import os
 import glob
@@ -21,13 +22,17 @@ class EventDialog(QDialog):
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_selector = QComboBox(self)  # 下拉列表选择区域
         self.outstation_identifier_input = QLineEdit(self) 
-        self.colour_selector = QComboBox(self) # 下拉列表选择颜色
+
+        # 颜色按钮初始设置
+        self.selected_color = QColor('white')  # 默认颜色为白色
+        self.selected_color_rgb = (255, 255, 255)
+        self.color_button = QPushButton('Colour Picker', self)
+        self.color_button.clicked.connect(self.chooseColor)
+
         self.setupUI()
         self.populate_schedule_selector()  # 填充下拉列表
         # 连接日程选择器的信号以填充区域选择器
         self.schedule_selector.currentIndexChanged.connect(self.populate_zone_selector)
-
-        self.colour_selector.addItems(['Red', 'Green', 'Blue', 'Yellow', 'White', 'Purple'])
 
     def setupUI(self):
         layout = QVBoxLayout(self)
@@ -42,7 +47,12 @@ class EventDialog(QDialog):
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
         form_layout.addRow('Zone:', self.zone_selector)
         form_layout.addRow('Outstation Identifier:', self.outstation_identifier_input)
-        form_layout.addRow('Event Colour:', self.colour_selector)
+
+        # 布局颜色选择按钮
+        color_button_layout = QHBoxLayout()
+        color_button_layout.addWidget(self.color_button)
+        form_layout.addRow('Colour:', color_button_layout)  # 将按钮添加到表单布局
+
         layout.addLayout(form_layout)
 
         # 创建按钮组
@@ -78,6 +88,14 @@ class EventDialog(QDialog):
             except ET.ParseError as e:
                 QMessageBox.critical(self, "Error", "Failed to parse the schedule file.")
 
+    def chooseColor(self):
+        color = QColorDialog.getColor(self.selected_color, self, "Select Color")
+        if color.isValid():
+            self.selected_color = color
+            # 更新按钮的样式
+            self.color_button.setStyleSheet(f"background-color: {color.name()}; color: black;")
+            # 保存颜色的 RGB 值
+            self.selected_color_rgb = (color.red(), color.green(), color.blue())
 
     def saveEvent(self):
         event_name = self.event_name_input.text().strip()
@@ -87,7 +105,7 @@ class EventDialog(QDialog):
 
         zone_name = self.zone_selector.currentText()
         outstation_identifier = self.outstation_identifier_input.text().strip()
-        colour = self.colour_selector.currentText()
+        colour = self.selected_color_rgb 
 
         if not event_name:  # 如果事件名称为空
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息

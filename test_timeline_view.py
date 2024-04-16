@@ -74,7 +74,7 @@ class WeeklyScheduleView(QWidget):
         for event in root.findall('.//event'):
             event_name = event.get('ID')
             event_time = event.find('eventTime')
-            event_colour = event.get('colour', 'blue')
+            event_colour = event.get('colour', '(255, 255, 255)')
             date_time_str = event_time.text.strip().strip('"')
 
             # 将字符串格式的日期时间转换为datetime对象
@@ -99,7 +99,11 @@ class WeeklyScheduleView(QWidget):
                     time_display = date_time.strftime('%H:%M')
                     button_text = f"{event_name} {time_display}"
                     button = QPushButton(button_text)
-                    button.setStyleSheet(f"background-color: {event_colour}; color: black;")
+
+                    # 解析 RGB 字符串并应用颜色
+                    rgb_tuple = eval(event_colour)  # 将字符串 '(255, 255, 255)' 转换为元组 (255, 255, 255)
+                    css_color = f"rgb{rgb_tuple}"  # 转换为 CSS 需要的格式
+                    button.setStyleSheet(f"background-color: {css_color}; color: black;")
                     widget.layout().addWidget(button)
 
                     # 调整行高以适应新的按钮
