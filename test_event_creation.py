@@ -17,7 +17,11 @@ class EventDialog(QDialog):
         self.event_name_input = QLineEdit(self)
 
         # 创建日期和时间选择器
-        self.date_time_edit = QDateTimeEdit(QDateTime.currentDateTime(), self)  
+        self.date_time_edit = QDateTimeEdit(QDateTime.currentDateTime(), self)
+
+        # 输入Setpoint Value并选择Setpoint Type
+        self.setpoint_input = QLineEdit(self)  
+        self.setpoint_selector = QComboBox(self)
 
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_selector = QComboBox(self)  # 下拉列表选择区域
@@ -30,6 +34,7 @@ class EventDialog(QDialog):
         self.color_button.clicked.connect(self.chooseColor)
 
         self.setupUI()
+        self.populate_setpoint_type_selector()
         self.populate_schedule_selector()  # 填充下拉列表
         # 连接日程选择器的信号以填充区域选择器
         self.schedule_selector.currentIndexChanged.connect(self.populate_zone_selector)
@@ -39,10 +44,13 @@ class EventDialog(QDialog):
 
         # 创建表单布局以收集事件信息
         form_layout = QFormLayout()
-        form_layout.addRow('Event Name:', self.event_name_input)
+        form_layout.addRow('Name:', self.event_name_input)
 
         self.date_time_edit.setCalendarPopup(True)
-        form_layout.addRow('Event Date and Time:', self.date_time_edit)
+        form_layout.addRow('Date and Time:', self.date_time_edit)
+
+        form_layout.addRow('Setpoint Value:', self.setpoint_input)
+        form_layout.addRow('Setpoint Type:', self.setpoint_selector)
 
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
         form_layout.addRow('Zone:', self.zone_selector)
@@ -88,6 +96,13 @@ class EventDialog(QDialog):
             except ET.ParseError as e:
                 QMessageBox.critical(self, "Error", "Failed to parse the schedule file.")
 
+    def populate_setpoint_type_selector(self):
+        self.setpoint_selector.clear()
+        self.setpoint_selector.addItem("Please select one of the following setpoint types", None)
+        self.setpoint_selector.addItem("Less Than", "lt")
+        self.setpoint_selector.addItem("Equal To", "eq")
+        self.setpoint_selector.addItem("Greater Than", "gt")
+
     def chooseColor(self):
         color = QColorDialog.getColor(self.selected_color, self, "Select Color")
         if color.isValid():
@@ -102,6 +117,14 @@ class EventDialog(QDialog):
 
         # 获取事件时间
         date_str= self.date_time_edit.dateTime().toPython()
+        date_time = date_str.strftime('%Y%m%d%H%M')
+
+        # 获取选定的日程
+        selected_schedule = self.schedule_selector.currentText()  
+
+        # 获取Setpoint Value和Setpoint Type
+        setpoint_value = self.setpoint_input.text().strip()
+        setpoint_type = self.setpoint_selector.currentData()
 
         zone_name = self.zone_selector.currentText()
         outstation_identifier = self.outstation_identifier_input.text().strip()
@@ -111,6 +134,18 @@ class EventDialog(QDialog):
             QMessageBox.critical(self, "Error", "Event name cannot be empty.")  # 显示错误消息
             return  # 退出方法，不继续执行后面的保存操作
         
+        if not setpoint_value:
+            QMessageBox.critical(self, "Error", "Setpoint Value cannot be empty.")
+            return
+        
+        if not self.check_numeric(setpoint_value):
+            QMessageBox.critical(self, "Error", "Setpoint Value must be a literal numeric value.")
+            return
+        
+        if not setpoint_type:
+            QMessageBox.critical(self, "Error", "Setpoint Type must be selected.")
+            return
+            
         if not zone_name:
             QMessageBox.critical(self, "Error", "Zone must be selected.")
             return
@@ -118,12 +153,8 @@ class EventDialog(QDialog):
         if not outstation_identifier:
             QMessageBox.critical(self, "Error", "Outstation Identifier cannot be empty.")
             return
-
-        date_time = date_str.strftime('%Y%m%d%H%M')
-
-        selected_schedule = self.schedule_selector.currentText()  # 获取选定的日程
     
-        if not self.createEventXML(event_name, date_time, selected_schedule, zone_name, outstation_identifier, colour):
+        if not self.createEventXML(event_name, date_time, setpoint_value, setpoint_type, selected_schedule, zone_name, outstation_identifier, colour):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
@@ -134,8 +165,15 @@ class EventDialog(QDialog):
     def get_new_event_date(self):
         # 返回用户在日期时间选择器中选择的事件开始日期
         return self.date_time_edit.date()
+    
+    def check_numeric(self, input_value):
+        try:
+            float(input_value)
+            return True
+        except ValueError:
+            return False
 
-    def createEventXML(self, event_name, date_time, schedule_name, zone_name, outstation_identifier, colour):
+    def createEventXML(self, event_name, date_time, setpoint_value, setpoint_type, schedule_name, zone_name, outstation_identifier, colour):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
     
@@ -165,7 +203,7 @@ class EventDialog(QDialog):
                 event = ET.SubElement(zone, 'event', ID=event_name, outstation=outstation_identifier, colour=colour)
                 event_time = ET.SubElement(event, 'eventTime')
                 event_time.text = f' "{date_time}" '
-                setpoint = ET.SubElement(event, 'setpoint', value="", type="")
+                setpoint = ET.SubElement(event, 'setpoint', value=setpoint_value, type=setpoint_type)
                 rrule = ET.SubElement(event, 'rrule')
                 ET.SubElement(rrule, 'repeat')
                 ET.SubElement(rrule, 'excDay')

@@ -6,7 +6,7 @@ class EventEditor:
     def __init__(self, parent=None):
         self.parent = parent
 
-    def view_event(self, event_name, event_time, schedule_name, zone_id, event_colour):
+    def view_event(self, event_name, event_time, setpoint_value, setpoint_type, schedule_name, zone_id, event_colour):
         dialog = QDialog(self.parent)
         dialog.setWindowTitle("Event Information")
         dialog.setFixedSize(400, 200)
@@ -60,6 +60,8 @@ class EventEditor:
         layout.addWidget(event_name_label)
 
         layout.addWidget(QLabel(f"Time: {event_time.strftime('%Y-%m-%d %H:%M')}"))
+        layout.addWidget(QLabel(f"Setpoint Value: {setpoint_value}"))
+        layout.addWidget(QLabel(f"Setpoint Type: {setpoint_type}"))
         layout.addWidget(QLabel(f"Schedule: {schedule_name}"))
         layout.addWidget(QLabel(f"Zone: {zone_id}"))
         

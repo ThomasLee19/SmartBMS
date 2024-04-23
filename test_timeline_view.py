@@ -87,11 +87,16 @@ class WeeklyScheduleView(QWidget):
                 for event in zone.findall('event'):
                     event_name = event.get('ID')
                     event_time = event.find('eventTime')
+                    event_setpoint = event.find('setpoint')
                     event_colour = event.get('colour', '(255, 255, 255)')
                     date_time_str = event_time.text.strip().strip('"')
 
                     # 将字符串格式的日期时间转换为datetime对象
                     date_time = self.parse_datetime_from_string(date_time_str)
+
+                    # 获取setpoint的value和type属性
+                    setpoint_value = event_setpoint.get('value')
+                    setpoint_type = self.convert_setpoint_type(event_setpoint.get('type'))
 
                     # 只加载在当前周显示的事件
                     if self.isDateInCurrentWeek(date_time.date(), week_start_date):
@@ -137,7 +142,7 @@ class WeeklyScheduleView(QWidget):
                             self.tableWidget.setRowHeight(hour, required_height)
 
                         # 连接按钮的点击信号到一个槽函数
-                        button.clicked.connect(lambda en=event_name, dt=date_time, sn=schedule_name, zi=zone_id: self.handle_event_click(en, dt, sn, zi))
+                        button.clicked.connect(lambda en=event_name, dt=date_time, sv=setpoint_value, st=setpoint_type, sn=schedule_name, zi=zone_id, ec=event_colour: self.handle_event_click(en, dt, sv, st, sn, zi, ec))
 
     def calculatePositionInGrid(self, date_time, week_start_date):
         # 首先将QDate转换为datetime.date对象
@@ -179,7 +184,15 @@ class WeeklyScheduleView(QWidget):
         date_time_str = ''.join(filter(str.isdigit, date_time_str))
         return datetime.strptime(date_time_str, '%Y%m%d%H%M')
     
-    def handle_event_click(self, event_name, date_time, event_schedule, event_zone):
+    def convert_setpoint_type(self, setpoint_type):
+        type_to_description = {
+            "lt": "Less Than",
+            "eq": "Equal To",
+            "gt": "Greater Than"
+        }
+        return type_to_description.get(setpoint_type, "Unknown")
+    
+    def handle_event_click(self, event_name, date_time, setpoint_value, setpoint_type, event_schedule, event_zone, evemt_colour):
         # 调用 EventEditor 的方法
-        self.event_editor.view_event(event_name, date_time, event_schedule, event_zone)
+        self.event_editor.view_event(event_name, date_time, setpoint_value, setpoint_type, event_schedule, event_zone, evemt_colour)
     
