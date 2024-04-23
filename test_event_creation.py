@@ -7,6 +7,8 @@ import xml.etree.ElementTree as ET
 import os
 import glob
 
+from test_repeat import RepeatRulesDialog
+
 class EventDialog(QDialog):
 
     event_created = Signal(QDate) 
@@ -26,6 +28,10 @@ class EventDialog(QDialog):
         self.schedule_selector = QComboBox(self) # 下拉列表选择日程
         self.zone_selector = QComboBox(self)  # 下拉列表选择区域
         self.outstation_identifier_input = QLineEdit(self) 
+
+        # 创建Repeat行的按钮
+        self.repeat_button = QPushButton("Repeat Rules", self)
+        self.repeat_button.clicked.connect(self.open_repeat_rules_dialog)
 
         # 颜色按钮初始设置
         self.selected_color = QColor('white')  # 默认颜色为白色
@@ -52,6 +58,12 @@ class EventDialog(QDialog):
         form_layout.addRow('Setpoint Value:', self.setpoint_input)
         form_layout.addRow('Setpoint Type:', self.setpoint_selector)
 
+        # 布局Repeat选择按钮
+        repeat_button_layout = QHBoxLayout()
+        repeat_button_layout.addWidget(self.repeat_button)
+        form_layout.addRow('Repeat:', repeat_button_layout)
+
+        # 布局事件所属的日程和区域信息
         form_layout.addRow('Schedule:', self.schedule_selector)  # 添加下拉列表到表单
         form_layout.addRow('Zone:', self.zone_selector)
         form_layout.addRow('Outstation Identifier:', self.outstation_identifier_input)
@@ -59,7 +71,7 @@ class EventDialog(QDialog):
         # 布局颜色选择按钮
         color_button_layout = QHBoxLayout()
         color_button_layout.addWidget(self.color_button)
-        form_layout.addRow('Colour:', color_button_layout)  # 将按钮添加到表单布局
+        form_layout.addRow('Colour:', color_button_layout)
 
         layout.addLayout(form_layout)
 
@@ -68,6 +80,11 @@ class EventDialog(QDialog):
         self.button_box.accepted.connect(self.saveEvent)
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
+
+    def open_repeat_rules_dialog(self):
+        dialog = RepeatRulesDialog(self)
+        if dialog.exec_():
+            pass
 
     def populate_schedule_selector(self):
         self.schedule_selector.clear() 
@@ -98,7 +115,7 @@ class EventDialog(QDialog):
 
     def populate_setpoint_type_selector(self):
         self.setpoint_selector.clear()
-        self.setpoint_selector.addItem("Please select one of the following setpoint types", None)
+        self.setpoint_selector.addItem("Please select one of the following types", None)
         self.setpoint_selector.addItem("Less Than", "lt")
         self.setpoint_selector.addItem("Equal To", "eq")
         self.setpoint_selector.addItem("Greater Than", "gt")
@@ -119,15 +136,17 @@ class EventDialog(QDialog):
         date_str= self.date_time_edit.dateTime().toPython()
         date_time = date_str.strftime('%Y%m%d%H%M')
 
-        # 获取选定的日程
-        selected_schedule = self.schedule_selector.currentText()  
+        # 获取Repeat
 
         # 获取Setpoint Value和Setpoint Type
         setpoint_value = self.setpoint_input.text().strip()
         setpoint_type = self.setpoint_selector.currentData()
 
+        # 获取选定的日程和区域
+        selected_schedule = self.schedule_selector.currentText()  
         zone_name = self.zone_selector.currentText()
         outstation_identifier = self.outstation_identifier_input.text().strip()
+
         colour = self.selected_color_rgb 
 
         if not event_name:  # 如果事件名称为空
