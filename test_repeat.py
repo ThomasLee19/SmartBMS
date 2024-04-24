@@ -27,6 +27,19 @@ class RepeatRulesDialog(QDialog):
         layout.addWidget(self.prompt_label)
         layout.addLayout(button_layout)
         layout.addWidget(self.current_rules_label)
+
+        # 添加保存和取消按钮
+        self.save_button = QPushButton("Save", self)
+        self.cancel_button = QPushButton("Cancel", self)
+        self.save_button.clicked.connect(self.attempt_save)
+        self.cancel_button.clicked.connect(self.reject)
+
+        # 按钮布局
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.save_button)
+        button_layout.addWidget(self.cancel_button)
+        layout.addLayout(button_layout)
+
         self.setLayout(layout)
 
         # 连接按钮的点击事件
@@ -42,13 +55,26 @@ class RepeatRulesDialog(QDialog):
     def update_rules(self):
         if self.day_specifiers:
             rules_text = "Current Repeat Rules:\n"
-            for index, (days, excluded_times) in enumerate(self.day_specifiers, 1):
+            for index, specifier in enumerate(self.day_specifiers, 1):
+                days = specifier[0]
+                excluded_times = specifier[1:]
                 rules_text += f"{index}. Day Repeat Specifier: {days}\n"
                 if excluded_times:
-                    rules_text += f"   Excluded Time: {excluded_times}\n"
+                    rules_text += f"    Excluded Time: {', '.join(excluded_times)}\n"
         else:
             rules_text = "Current Repeat Rules: None"
         self.current_rules_label.setText(rules_text)
+
+    def attempt_save(self):
+        if not self.day_specifiers:
+            QMessageBox.critical(self, "Error", "No repeat rules have been set. Save failed.")
+            return
+        self.accept()
+
+    def get_current_rules(self):
+        if not self.day_specifiers:
+            return None
+        return self.day_specifiers
 
 class DaySpecifierDialog(QDialog):
     def __init__(self, parent=None):
@@ -130,8 +156,9 @@ class DaySpecifierDialog(QDialog):
 
     def get_selected_days(self):
         selected_days = ', '.join([day for day, checkbox in self.checkboxes.items() if checkbox.isChecked()])
-        excluded_times = ', '.join([datetime_edit.dateTime().toString("yyyyMMddHHmm") for datetime_edit in self.excluded_times])
-        return (selected_days, excluded_times)
+        # 将每个排除时间作为单独的元素存储
+        excluded_times = [datetime_edit.dateTime().toString("yyyyMMddHHmm") for datetime_edit in self.excluded_times]
+        return (selected_days, *excluded_times)
 
     def attempt_accept(self):
         # 检查是否有天被选中
