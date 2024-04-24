@@ -178,7 +178,6 @@ class CalendarView(QMainWindow):
             return f"{start_month} - {end_month} {start_year}"
         else:
             return f"{month_name} {start_year}"
-
         
     def on_new_schedule_button_clicked(self):
         dialog = CreateScheduleDialog(self)
@@ -227,6 +226,7 @@ class CalendarView(QMainWindow):
         
         # 读取"Schedules"文件夹中的所有XML文件
         schedule_files = glob.glob(os.path.join(schedules_dir, '*.xml'))
+        
         for filepath in schedule_files:
             schedule_name = os.path.splitext(os.path.basename(filepath))[0]
             building_name = self.getBuildingNameFromSchedule(filepath)  # 获取Building名称
@@ -236,21 +236,24 @@ class CalendarView(QMainWindow):
             item = QListWidgetItem(self.schedule_list)
             item.setSizeHint(item_widget.sizeHint())
             self.schedule_list.addItem(item)
-            self.schedule_list.setItemWidget(item, item_widget)
+            self.schedule_list.setItemWidget(item, item_widget) 
 
         # 加载事件到时间线
         current_date = QDate.currentDate()  # 获取当前日期
         self.refreshEvents(current_date)  # 使用当前日期刷新事件
         self.updateLabel(current_date)
         
-    def remove_schedule(self, schedule_name):
-        # 找到并删除列表项和文件
-        items = self.schedule_list.findItems(schedule_name, Qt.MatchExactly)
-        if items:
-            for item in items:
-                row = self.schedule_list.row(item)
-                self.schedule_list.takeItem(row)
-        self.loadSchedules() 
+    def remove_schedule(self, schedule_label):
+        # 使用 split() 方法分割字符串，以 " - " 作为分隔符
+        parts = schedule_label.split(" - ")
+        schedule_name = parts[0]
+
+        # 检查当前选中的日程是否是即将删除的日程
+        if self.current_schedule_path and os.path.basename(self.current_schedule_path).replace('.xml', '') == schedule_name:
+            self.current_schedule_path = None  # 清除当前选中的日程文件路径
+
+        # 重新加载或更新日程列表
+        self.loadSchedules()
 
 def main():
     app = QApplication(sys.argv)
