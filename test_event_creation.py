@@ -85,19 +85,7 @@ class EventDialog(QDialog):
         dialog = RepeatRulesDialog(self)
         if dialog.exec_():
             rules = dialog.get_current_rules()
-            print(rules)  # 这行可以用于调试，查看实际存储的数据结构
-            if rules:
-                print("Current Repeat Rules:")
-                for index, rule in enumerate(rules, 1):
-                    days = rule[0]  # 第一个元素是选择的天
-                    excluded_times = rule[1:]  # 后续元素是排除的时间
-                    print(f"{index}. Day Repeat Specifier: {days}")
-                    if excluded_times:
-                        # 将排除时间列表转换为逗号分隔的字符串
-                        excluded_times_str = ', '.join(excluded_times)
-                        print(f"   Excluded Time: {excluded_times_str}")
-            else:
-                print("No repeat rules have been set.")
+            print(rules)  # 查看实际存储的数据结构
 
     def populate_schedule_selector(self):
         self.schedule_selector.clear() 
