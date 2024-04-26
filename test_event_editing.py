@@ -1,15 +1,18 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QSizePolicy, QSpacerItem
 from PySide6.QtGui import QIcon, QFont
 from PySide6.QtCore import Qt
+from datetime import datetime
 
 class EventEditor:
     def __init__(self, parent=None):
         self.parent = parent
 
-    def view_event(self, event_name, event_time, setpoint_value, setpoint_type, schedule_name, zone_id, event_colour):
+    def view_event(self, event_name, event_time, setpoint_value, setpoint_type, repeat_rules, schedule_name, zone_id, event_colour):
         dialog = QDialog(self.parent)
         dialog.setWindowTitle("Event Information")
-        dialog.setFixedSize(400, 200)
+        dialog.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        dialog.adjustSize()
 
         # Create a widget to hold the buttons with a fixed width
         button_container = QWidget()
@@ -28,6 +31,10 @@ class EventEditor:
 
         button_layout.addStretch(1)
 
+        # 添加一个水平空间
+        spacer = QSpacerItem(240, 30)
+        button_layout.addItem(spacer)
+
         # Edit button with icon and fixed size
         edit_button = QPushButton()
         edit_button.setIcon(QIcon('Images/edit_event.jpg'))
@@ -45,7 +52,7 @@ class EventEditor:
         button_layout.addWidget(delete_button)
         
         # Main layout
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(dialog)
         
         # Add button container to the main layout
         layout.addWidget(button_container)
@@ -62,12 +69,47 @@ class EventEditor:
         layout.addWidget(QLabel(f"Time: {event_time.strftime('%Y-%m-%d %H:%M')}"))
         layout.addWidget(QLabel(f"Setpoint Value: {setpoint_value}"))
         layout.addWidget(QLabel(f"Setpoint Type: {setpoint_type}"))
+
+        # Display Repeat Rules
+        if repeat_rules:
+            repeat_rules_label = QLabel("Repeat Rules:")
+            layout.addWidget(repeat_rules_label)
+            for index, rule in enumerate(repeat_rules, start=1):
+                specifier_type = "Day Specifier" if rule[0] == "day" else "Time Specifier"
+                # Convert day abbreviations to full names or format as datetime
+                if rule[0] == "day":
+                    days = self.convert_days(rule[1])
+                else:
+                    days = self.format_time(rule[1]) if rule[1].isdigit() else rule[1]
+
+                specifier_text = f"{index}. {specifier_type}: {days}"
+                layout.addWidget(QLabel(specifier_text))
+                for excluded_time in rule[2:]:
+                    formatted_time = self.format_time(excluded_time)
+                    excluded_time_text = f"    Excluded Time: {formatted_time}"
+                    layout.addWidget(QLabel(excluded_time_text))
+        else:
+            layout.addWidget(QLabel("Repeat Rules: None"))
+        
         layout.addWidget(QLabel(f"Schedule: {schedule_name}"))
         layout.addWidget(QLabel(f"Zone: {zone_id}"))
         
         # Set the dialog layout
         dialog.setLayout(layout)
         dialog.exec_()
+
+    def convert_days(self, days_str):
+        day_mapping = {
+            "Mo": "Monday", "Tu": "Tuesday", "We": "Wednesday",
+            "Th": "Thursday", "Fr": "Friday", "Sa": "Saturday", "Su": "Sunday"
+        }
+        return ', '.join(day_mapping.get(day.strip(), day.strip()) for day in days_str.split(','))
+
+    def format_time(self, time_str):
+        # 解析原始时间格式
+        dt = datetime.strptime(time_str, '%Y%m%d%H%M')
+        # 转换为新的时间格式
+        return dt.strftime('%Y-%m-%d %H:%M')
 
     def delete_event(self, event_name, dialog):
         print(f"Deleting event: {event_name}")

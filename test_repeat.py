@@ -74,6 +74,12 @@ class RepeatRulesDialog(QDialog):
                 days = specifier[1]
                 excluded_times = specifier[2:]
 
+                # 格式化天或时间
+                if specifier_type == 'day':
+                    days = self.convert_days(days)
+                elif specifier_type == 'time' and days.isdigit():
+                    days = self.format_time(days)
+
                 # 创建规则描述和删除按钮
                 rule_layout = QHBoxLayout()
                 rule_label_text = f"{index}. "
@@ -106,6 +112,13 @@ class RepeatRulesDialog(QDialog):
             # 如果没有规则，显示None
             no_rules_label = QLabel("Current Repeat Rules: None")
             self.scroll_layout.addWidget(no_rules_label)
+
+    def convert_days(self, days_str):
+        day_mapping = {
+            "Mo": "Monday", "Tu": "Tuesday", "We": "Wednesday",
+            "Th": "Thursday", "Fr": "Friday", "Sa": "Saturday", "Su": "Sunday"
+        }
+        return ', '.join(day_mapping.get(day.strip(), day.strip()) for day in days_str.split(','))
 
     def format_time(self, time_str):
         # 解析原始时间格式
