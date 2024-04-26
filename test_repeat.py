@@ -3,13 +3,14 @@ from PySide6.QtWidgets import QHBoxLayout, QDialog, QCheckBox, QDateTimeEdit, QF
 from PySide6.QtCore import QDateTime, QSize, Qt, QRegularExpression
 from PySide6.QtGui import QRegularExpressionValidator
 from functools import partial
+from datetime import datetime
 
 class RepeatRulesDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, specifiers, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Repeat Rules")
         self.resize(400, 300)
-        self.specifiers = []  # 存储所有的Day Specifiers
+        self.specifiers = specifiers
 
         # 创建提示标签
         self.prompt_label = QLabel("Please select the type of the new repeat specifier:", self)
@@ -76,7 +77,7 @@ class RepeatRulesDialog(QDialog):
                 # 创建规则描述和删除按钮
                 rule_layout = QHBoxLayout()
                 rule_label_text = f"{index}. "
-                rule_label_text += "Day Repeat Specifier: " if specifier_type == 0 else "Time Repeat Specifier: "
+                rule_label_text += "Day Repeat Specifier: " if specifier_type == 'day' else "Time Repeat Specifier: "
                 rule_label_text += f"{days}"
                 rule_label = QLabel(rule_label_text)
                 delete_button = QPushButton("-")
@@ -92,8 +93,11 @@ class RepeatRulesDialog(QDialog):
 
                 # 如果有排除时间，将其显示在新的一行
                 if excluded_times:
+                    # 格式化时间
+                    formatted_times = [self.format_time(time) for time in excluded_times]
+                    
                     excluded_time_layout = QHBoxLayout()
-                    excluded_time_label = QLabel(f"    Excluded Time: {', '.join(excluded_times)}")
+                    excluded_time_label = QLabel(f"    Excluded Time: {', '.join(formatted_times)}")
                     excluded_time_layout.addWidget(excluded_time_label)
                     excluded_time_widget = QWidget()
                     excluded_time_widget.setLayout(excluded_time_layout)
@@ -102,6 +106,12 @@ class RepeatRulesDialog(QDialog):
             # 如果没有规则，显示None
             no_rules_label = QLabel("Current Repeat Rules: None")
             self.scroll_layout.addWidget(no_rules_label)
+
+    def format_time(self, time_str):
+        # 解析原始时间格式
+        dt = datetime.strptime(time_str, '%Y%m%d%H%M')
+        # 转换为新的时间格式
+        return dt.strftime('%Y-%m-%d %H:%M')
 
     def remove_specifier(self, index):
         del self.specifiers[index]
@@ -223,7 +233,7 @@ class DaySpecifierDialog(QDialog):
         selected_days = ', '.join([day for day, checkbox in self.checkboxes.items() if checkbox.isChecked()])
         # 将每个排除时间作为单独的元素存储
         excluded_times = [datetime_edit.dateTime().toString("yyyyMMddHHmm") for datetime_edit in self.excluded_times]
-        return (0, selected_days, *excluded_times)
+        return ('day', selected_days, *excluded_times)
 
     def attempt_accept(self):
         # 检查是否有天被选中
@@ -345,7 +355,7 @@ class TimeSpecifierDialog(QDialog):
         time_format = f"{year}{month}{day}{hour}{minute}"
         # 将每个排除时间作为单独的元素存储
         excluded_times = [datetime_edit.dateTime().toString("yyyyMMddHHmm") for datetime_edit in self.excluded_times]
-        return (1, time_format, *excluded_times)
+        return ('time', time_format, *excluded_times)
 
     def save_time_format(self):
         # 获取各部分的输入

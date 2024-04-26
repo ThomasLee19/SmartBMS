@@ -16,6 +16,8 @@ class EventDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Create New Event')
+        self.repeat_rules = []
+
         self.event_name_input = QLineEdit(self)
 
         # 创建日期和时间选择器
@@ -82,10 +84,10 @@ class EventDialog(QDialog):
         layout.addWidget(self.button_box)
 
     def open_repeat_rules_dialog(self):
-        dialog = RepeatRulesDialog(self)
+        # 假设 self.repeat_rules 存储了之前设置的规则
+        dialog = RepeatRulesDialog(self.repeat_rules, self)
         if dialog.exec_():
-            rules = dialog.get_current_rules()
-            print(rules)  # 查看实际存储的数据结构
+            self.repeat_rules = dialog.get_current_rules()  # 更新规则
 
     def populate_schedule_selector(self):
         self.schedule_selector.clear() 
@@ -137,11 +139,12 @@ class EventDialog(QDialog):
         date_str= self.date_time_edit.dateTime().toPython()
         date_time = date_str.strftime('%Y%m%d%H%M')
 
-        # 获取Repeat
-
         # 获取Setpoint Value和Setpoint Type
         setpoint_value = self.setpoint_input.text().strip()
         setpoint_type = self.setpoint_selector.currentData()
+
+        # 获取Repeat Rules列表
+        repeat_rules = self.repeat_rules
 
         # 获取选定的日程和区域
         selected_schedule = self.schedule_selector.currentText()  
@@ -174,7 +177,7 @@ class EventDialog(QDialog):
             QMessageBox.critical(self, "Error", "Outstation Identifier cannot be empty.")
             return
     
-        if not self.createEventXML(event_name, date_time, setpoint_value, setpoint_type, selected_schedule, zone_name, outstation_identifier, colour):
+        if not self.createEventXML(event_name, date_time, setpoint_value, setpoint_type, repeat_rules, selected_schedule, zone_name, outstation_identifier, colour):
             return  # 如果 createEventXML 返回 False，则不关闭对话框
 
         # 如果一切顺利，则可以接受对话框并关闭
@@ -193,7 +196,7 @@ class EventDialog(QDialog):
         except ValueError:
             return False
 
-    def createEventXML(self, event_name, date_time, setpoint_value, setpoint_type, schedule_name, zone_name, outstation_identifier, colour):
+    def createEventXML(self, event_name, date_time, setpoint_value, setpoint_type, repeat_rules, schedule_name, zone_name, outstation_identifier, colour):
         schedules_dir = 'Schedules'
         filename = os.path.join(schedules_dir, f'{schedule_name}.xml')
     
@@ -224,9 +227,15 @@ class EventDialog(QDialog):
                 event_time = ET.SubElement(event, 'eventTime')
                 event_time.text = f' "{date_time}" '
                 setpoint = ET.SubElement(event, 'setpoint', value=setpoint_value, type=setpoint_type)
-                rrule = ET.SubElement(event, 'rrule')
-                ET.SubElement(rrule, 'repeat')
-                ET.SubElement(rrule, 'excDay')
+
+                # 处理重复规则
+                for rule in self.repeat_rules:
+                    rrule = ET.SubElement(event, 'rrule')
+                    # 添加repeat元素，包含specifier和type属性
+                    repeat_element = ET.SubElement(rrule, 'repeat', specifier=rule[1], type=str(rule[0]))
+                    for excluded_time in rule[2:]:  # 第三位及以后是 excludedTime
+                        # 添加excludedTime，文本两边添加一个空格
+                        ET.SubElement(rrule, 'excDay').text = f' "{excluded_time}" '
 
                 tree.write(filename, encoding='utf-8', xml_declaration=True)
                 return True  # 创建成功
