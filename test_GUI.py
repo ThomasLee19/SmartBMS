@@ -13,6 +13,7 @@ from test_event_creation import EventDialog
 from test_schedule_system import CreateScheduleDialog
 from test_zone import ListItemWidget
 from test_timeline_view import WeeklyScheduleView
+from test_event_infor import EventInfor
 
 class CalendarView(QMainWindow):
     def __init__(self):

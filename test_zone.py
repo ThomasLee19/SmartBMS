@@ -140,7 +140,6 @@ class CreateZoneDialog(QDialog):
         new_zone.set('description', zone_description)
 
         tree.write(self.schedule_file, encoding='utf-8', xml_declaration=True)
-        QMessageBox.information(self, "Success", f"Zone '{zone_name}' has been added successfully.")
         self.accept()
 
 class ScheduleDetailsDialog(QDialog):

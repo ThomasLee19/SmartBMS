@@ -4,13 +4,13 @@ from PySide6.QtCore import QDate
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
-from test_event_editing import EventEditor
+from test_event_infor import EventInfor
 
 class WeeklyScheduleView(QWidget):  
     def __init__(self, parent=None):
         super().__init__(parent)
         self.initUI()
-        self.event_editor = EventEditor(self)
+        self.event_infor = EventInfor(self)
 
     def initUI(self):
         # 创建一个表格，行数为24，代表24小时，列数为7，代表一周七天
@@ -75,7 +75,6 @@ class WeeklyScheduleView(QWidget):
         tree = ET.parse(schedule_file_path)
         root = tree.getroot()
         schedule_name = root.get('name')  # Directly use root to get the schedule name
-        events_by_cell = {}  # 用于存储每个单元格的事件列表
 
         building = root.find('building')
         if building is not None:
@@ -83,11 +82,13 @@ class WeeklyScheduleView(QWidget):
             # 遍历每个 zone
             for zone in building.findall('zone'):
                 zone_id = zone.get('ID')
+                events_by_cell = {}  # 用于存储每个单元格的事件列表
 
                 for event in zone.findall('event'):
                     event_name = event.get('ID')
                     event_time = event.find('eventTime')
                     event_setpoint = event.find('setpoint')
+                    event_outstation = event.get('outstation')
                     event_colour = event.get('colour', '(255, 255, 255)')
                     date_time_str = event_time.text.strip().strip('"')
 
@@ -97,6 +98,15 @@ class WeeklyScheduleView(QWidget):
                     # 获取setpoint的value和type属性
                     setpoint_value = event_setpoint.get('value')
                     setpoint_type = self.convert_setpoint_type(event_setpoint.get('type'))
+
+                    # 解析重复规则
+                    repeat_rules = []
+                    for rrule in event.findall('rrule'):
+                        repeat = rrule.find('repeat')
+                        repeat_type = repeat.get('type')
+                        repeat_specifier = repeat.get('specifier')
+                        exc_days = [exc_day.text.strip().strip('"') for exc_day in rrule.findall('excDay')]
+                        repeat_rules.append((repeat_type, repeat_specifier, *exc_days))
 
                     # 只加载在当前周显示的事件
                     if self.isDateInCurrentWeek(date_time.date(), week_start_date):
@@ -110,7 +120,15 @@ class WeeklyScheduleView(QWidget):
                                 events_by_cell[(hour, event_day)] = []
                             
                             # 添加事件到列表
-                            events_by_cell[(hour, event_day)].append((date_time, event_name, event_colour))
+                            events_by_cell[(hour, event_day)].append({
+                                'date_time': date_time,
+                                'event_name': event_name,
+                                'event_colour': event_colour,
+                                'setpoint_value': setpoint_value,
+                                'setpoint_type': setpoint_type,
+                                'event_outstation': event_outstation,
+                                'repeat_rules': repeat_rules
+                            })
 
                 # 遍历每个单元格，按时间排序事件并创建按钮
                 for (hour, event_day), events in events_by_cell.items():
@@ -123,14 +141,14 @@ class WeeklyScheduleView(QWidget):
                         widget.setLayout(layout)
                         self.tableWidget.setCellWidget(hour, event_day, widget)
 
-                    for date_time, event_name, event_colour in events:
+                    for event_info in events:
                         # 格式化时间显示为HH:MM
-                        time_display = date_time.strftime('%H:%M')
-                        button_text = f"{event_name} {time_display}"
+                        time_display = event_info['date_time'].strftime('%H:%M')
+                        button_text = f"{event_info['event_name']} {time_display}"
                         button = QPushButton(button_text)
 
                         # 解析 RGB 字符串并应用颜色
-                        rgb_tuple = eval(event_colour)  # 将字符串 '(255, 255, 255)' 转换为元组 (255, 255, 255)
+                        rgb_tuple = eval(event_info['event_colour'])  # 将字符串 '(255, 255, 255)' 转换为元组 (255, 255, 255)
                         css_color = f"rgb{rgb_tuple}"  # 转换为 CSS 需要的格式
                         button.setStyleSheet(f"background-color: {css_color}; color: black;")
                         widget.layout().addWidget(button)
@@ -142,7 +160,7 @@ class WeeklyScheduleView(QWidget):
                             self.tableWidget.setRowHeight(hour, required_height)
 
                         # 连接按钮的点击信号到一个槽函数
-                        button.clicked.connect(lambda en=event_name, dt=date_time, sv=setpoint_value, st=setpoint_type, sn=schedule_name, zi=zone_id, ec=event_colour: self.handle_event_click(en, dt, sv, st, sn, zi, ec))
+                        button.clicked.connect(lambda en=event_info['event_name'], dt=event_info['date_time'], sv=event_info['setpoint_value'], st=event_info['setpoint_type'], rr=event_info['repeat_rules'], sn=schedule_name, zi=zone_id, eo=event_info['event_outstation'], ec=event_info['event_colour']: self.handle_event_click(en, dt, sv, st, rr, sn, zi, eo, ec))
 
     def calculatePositionInGrid(self, date_time, week_start_date):
         # 首先将QDate转换为datetime.date对象
@@ -192,7 +210,18 @@ class WeeklyScheduleView(QWidget):
         }
         return type_to_description.get(setpoint_type, "Unknown")
     
-    def handle_event_click(self, event_name, date_time, setpoint_value, setpoint_type, event_schedule, event_zone, evemt_colour):
+    def handle_event_click(self, event_name, date_time, setpoint_value, setpoint_type, repeat_rules, event_schedule, event_zone, event_outstation, event_colour):
         # 调用 EventEditor 的方法
-        self.event_editor.view_event(event_name, date_time, setpoint_value, setpoint_type, event_schedule, event_zone, evemt_colour)
+        self.event_infor.view_event(event_name, date_time, setpoint_value, setpoint_type, repeat_rules, event_schedule, event_zone, event_outstation, event_colour)
+    
+    def updateEventsTimeline(self, schedule_path, date):
+        # 计算所选日期所在周的周一日期
+        week_start_date = date.addDays(-date.dayOfWeek() + 1)
+
+        # 如果当前有选中的日程文件路径，则加载该日程中的事件
+        if schedule_path:
+            self.loadEventsFromXML(schedule_path, week_start_date)
+        else:
+            # 如果没有选中的日程，则清空时间线
+            self.clearEvents()
     
